@@ -13,10 +13,10 @@ spec:
       labels:
         app: db-service
     spec:
-      schedulerName: my-scheduler
+      # schedulerName: my-scheduler
       containers:
       - name: db-service
-        image: shieldxbot/go-db-service:v1.0.5
+        image: shieldxbot/go-db-service:v1.0.7
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000

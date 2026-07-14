@@ -16,7 +16,7 @@ spec:
       serviceAccountName: scheduler-plugin   # tạo nếu chưa có
       containers:
       - name: scheduler
-        image: shieldxbot/kube-scheduler:v1.0.2
+        image: shieldxbot/kube-scheduler:v1.0.3
         imagePullPolicy: IfNotPresent
         env:
         - name: REDIS_ADDR

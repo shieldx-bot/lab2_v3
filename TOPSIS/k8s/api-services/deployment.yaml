@@ -12,10 +12,10 @@ spec:
       labels:
         app: api-services
     spec:
-      schedulerName:  my-scheduler
+      # schedulerName:  my-scheduler
       containers:
       - name: api-services
-        image: shieldxbot/go-api-services:v1.0.5
+        image: shieldxbot/go-api-services:v1.0.7
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 4000
