@@ -20,6 +20,17 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
+        env:
+        - name: SCYLLA_HOSTS
+          value: "192.168.0.5,192.168.0.6,192.168.0.7"
+        - name: KEYSPACE
+          value: "my_keyspace"
+        - name: NATS_SERVERS
+          value: "nats://192.168.0.4:2222,nats://192.168.0.7:5222,nats://192.168.0.8:6222"
+        - name: DATA_CENTER
+          value: "datacenter1"
+        - name: MAX_WORKERS
+          value: "50"
         resources:
           requests:
             memory: "50Mi"

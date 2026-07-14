@@ -19,6 +19,19 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 4000
+        env:
+        - name: REDIS_WRITE_ADDR
+          value: "192.168.0.5:6379"
+        - name: REDIS_READ_ADDRS
+          value: "192.168.0.5:6379 ,192.168.0.5:6379"
+        - name: NATS_SERVERS
+          value: "nats://192.168.0.4:2222,nats://192.168.0.7:5222,nats://192.168.0.8:6222"
+        - name: NATS_TIMEOUT
+          value: "8s"
+        - name: CACHE_TTL
+          value: "600s"
+        - name: SERVER_PORT
+          value: ":4000"
         resources:
           requests:
             memory: "50Mi"
