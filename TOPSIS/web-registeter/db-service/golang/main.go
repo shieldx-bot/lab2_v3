@@ -31,17 +31,29 @@ type Config struct {
 	MaxWorkers  int // số lượng goroutine đồng thời tối đa cho NATS handler
 }
 
-var config = Config{
-	ScyllaHosts: []string{"192.168.24.13", "192.168.24.15", "192.168.24.19"},
-	Keyspace:    "my_keyspace",
-	NATSServers: []string{
-		"nats://192.168.24.10:5222",
-		"nats://192.168.24.11:6222",
-		"nats://192.168.24.12:7222",
-	},
-	DataCenter: "datacenter1",
-	MaxWorkers: 50, // có thể tùy chỉnh theo tải
+func LoadConfig() Config {
+	// 1. Đọc các chuỗi phân tách bằng dấu phẩy thành []string
+	scyllaHosts := strings.Split(getEnv("SCYLLA_HOSTS", "192.168.24.13,192.168.24.15,192.168.24.19"), ",")
+	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://192.168.24.10:5222,nats://192.168.24.11:6222,nats://192.168.24.12:7222"), ",")
+
+	return Config{
+		ScyllaHosts: scyllaHosts,
+		Keyspace:    getEnv("KEYSPACE", "my_keyspace"),
+		NATSServers: natsServers,
+		DataCenter:  getEnv("DATA_CENTER", "datacenter1"),
+		MaxWorkers:  50,
+	}
 }
+
+// Hàm helper để đọc ENV có giá trị mặc định (fallback)
+func getEnv(key, fallback string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return fallback
+}
+
+var config = LoadConfig()
 
 // ============================================
 // CLIENTS

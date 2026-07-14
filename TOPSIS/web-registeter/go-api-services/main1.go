@@ -31,18 +31,41 @@ type Config struct {
 	ServerPort     string
 }
 
-var config = Config{
-	RedisWriteAddr: "192.168.24.5:6379",
-	RedisReadAddrs: []string{"192.168.24.8:6379", "192.168.24.9:6379"},
-	NATSServers: []string{
-		"nats://192.168.24.10:5222",
-		"nats://192.168.24.11:6222",
-		"nats://192.168.24.12:7222",
-	},
-	NATSTimeout: 8 * time.Second,
-	CacheTTL:    600 * time.Second,
-	ServerPort:  ":4000",
+func LoadConfig() Config {
+	// Parse mảng chuỗi
+	redisReadAddrs := strings.Split(getEnv("REDIS_READ_ADDRS", "192.168.24.8:6379,192.168.24.9:6379"), ",")
+	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://192.168.24.10:5222,nats://192.168.24.11:6222,nats://192.168.24.12:7222"), ",")
+
+	// Parse định dạng thời gian (time.Duration)
+	natsTimeout, err := time.ParseDuration(getEnv("NATS_TIMEOUT", "8s"))
+	if err != nil {
+		natsTimeout = 8 * time.Second
+	}
+
+	cacheTTL, err := time.ParseDuration(getEnv("CACHE_TTL", "600s"))
+	if err != nil {
+		cacheTTL = 600 * time.Second
+	}
+
+	return Config{
+		RedisWriteAddr: getEnv("REDIS_WRITE_ADDR", "192.168.24.5:6379"),
+		RedisReadAddrs: redisReadAddrs,
+		NATSServers:    natsServers,
+		NATSTimeout:    natsTimeout,
+		CacheTTL:       cacheTTL,
+		ServerPort:     getEnv("SERVER_PORT", ":4000"),
+	}
 }
+
+// Hàm helper lấy ENV có giá trị mặc định
+func getEnv(key, fallback string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return fallback
+}
+
+var config = LoadConfig()
 
 // ============================================
 // CLIENTS
