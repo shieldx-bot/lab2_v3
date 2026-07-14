@@ -159,44 +159,44 @@ def create_table(session):
             PRIMARY KEY ((node_id), id)
         ) WITH CLUSTERING ORDER BY (id DESC)
     """)
-    session.execute("""
-        DROP TABLE MetricData1; 
-    """)
+    # session.execute("""
+    #     DROP TABLE MetricData1; 
+    # """)
 
 
-    # Đã sửa trường timestamp thành kiểu timestamp hợp lệ
-    session.execute("""
-        CREATE TABLE IF NOT EXISTS MetricData1 (
-            id              timeuuid,
-            node_id         text,
-            timestamp       timestamp,
-            "CPUUsageMax"     double,
-            "CPUUsageMin"     double,
-            "CPUUsageAVG"     double,
-            "MemoryUsageMax"  double,
-            "MemoryUsageMin"  double,
-            "MemoryUsageAVG"  double,
-            "TailLatencyMax"  double,
-            "TailLatencyMin"  double,
-            "TailLatencyAVG"  double,
-            "DiskFreeMax"     double,
-            "DiskFreeMin"     double,
-            "DiskFreeAVG"     double,
-            "SwapMemory_max"  double,
-            "SwapMemory_min"  double,
-            "SwapMemory_avg"  double,
-            "DiskIOCounterBusyTimeMax"  double,
-            "DiskIOCounterBusyTimeMin"  double,
-            "DiskIOCounterBusyTimeAVG"  double,
-            "NetIOCounterDropinMax"     double,
-            "NetIOCounterDropinMin"     double,
-            "NetIOCounterDropinAVG"     double,
-            "NetIOCounterDropoutMax"    double,
-            "NetIOCounterDropoutMin"    double,
-            "NetIOCounterDropoutAVG"    double,
-            PRIMARY KEY ((node_id), id)
-        ) WITH CLUSTERING ORDER BY (id DESC)
-    """)
+    # # Đã sửa trường timestamp thành kiểu timestamp hợp lệ
+    # session.execute("""
+    #     CREATE TABLE IF NOT EXISTS MetricData1 (
+    #         id              timeuuid,
+    #         node_id         text,
+    #         timestamp       timestamp,
+    #         "CPUUsageMax"     double,
+    #         "CPUUsageMin"     double,
+    #         "CPUUsageAVG"     double,
+    #         "MemoryUsageMax"  double,
+    #         "MemoryUsageMin"  double,
+    #         "MemoryUsageAVG"  double,
+    #         "TailLatencyMax"  double,
+    #         "TailLatencyMin"  double,
+    #         "TailLatencyAVG"  double,
+    #         "DiskFreeMax"     double,
+    #         "DiskFreeMin"     double,
+    #         "DiskFreeAVG"     double,
+    #         "SwapMemory_max"  double,
+    #         "SwapMemory_min"  double,
+    #         "SwapMemory_avg"  double,
+    #         "DiskIOCounterBusyTimeMax"  double,
+    #         "DiskIOCounterBusyTimeMin"  double,
+    #         "DiskIOCounterBusyTimeAVG"  double,
+    #         "NetIOCounterDropinMax"     double,
+    #         "NetIOCounterDropinMin"     double,
+    #         "NetIOCounterDropinAVG"     double,
+    #         "NetIOCounterDropoutMax"    double,
+    #         "NetIOCounterDropoutMin"    double,
+    #         "NetIOCounterDropoutAVG"    double,
+    #         PRIMARY KEY ((node_id), id)
+    #     ) WITH CLUSTERING ORDER BY (id DESC)
+    # """)
 
 
 def delete_old_data(session, node_id):
@@ -255,49 +255,49 @@ def insert_data(session, agg):
         ],
     )
 
-    # Đã bổ sung timestamp vào câu lệnh INSERT và truyền tham số `now`
-    session.execute(
-        """INSERT INTO MetricData1 (
-            id, node_id, timestamp,
-            "CPUUsageMax", "CPUUsageMin", "CPUUsageAVG",
-            "MemoryUsageMax", "MemoryUsageMin", "MemoryUsageAVG",
-            "TailLatencyMax", "TailLatencyMin", "TailLatencyAVG",
-            "DiskFreeMax", "DiskFreeMin", "DiskFreeAVG",
-            "SwapMemory_max", "SwapMemory_min", "SwapMemory_avg",
-            "DiskIOCounterBusyTimeMax", "DiskIOCounterBusyTimeMin", "DiskIOCounterBusyTimeAVG",
-            "NetIOCounterDropinMax", "NetIOCounterDropinMin", "NetIOCounterDropinAVG",
-            "NetIOCounterDropoutMax", "NetIOCounterDropoutMin", "NetIOCounterDropoutAVG"
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-        [
-            metric_id,
-            agg["NODE_ID"],
-            now,
-            agg["CPUUsageMax"],
-            agg["CPUUsageMin"],
-            agg["CPUUsageAVG"],
-            agg["MemoryUsageMax"],
-            agg["MemoryUsageMin"],
-            agg["MemoryUsageAVG"],
-            agg["TailLatencyMax"],
-            agg["TailLatencyMin"],
-            agg["TailLatencyAVG"],
-            agg["DiskFreeMax"],
-            agg["DiskFreeMin"],
-            agg["DiskFreeAVG"],
-            agg["SwapMemoryMax"],
-            agg["SwapMemoryMin"],
-            agg["SwapMemoryAVG"],
-            agg["DiskIOCounterBusyTimeMax"],
-            agg["DiskIOCounterBusyTimeMin"],
-            agg["DiskIOCounterBusyTimeAVG"],
-            agg["NetIOCounterDropinMax"],
-            agg["NetIOCounterDropinMin"],
-            agg["NetIOCounterDropinAVG"],
-            agg["NetIOCounterDropoutMax"],
-            agg["NetIOCounterDropoutMin"],
-            agg["NetIOCounterDropoutAVG"],
-        ],
-    )
+    # # Đã bổ sung timestamp vào câu lệnh INSERT và truyền tham số `now`
+    # session.execute(
+    #     """INSERT INTO MetricData1 (
+    #         id, node_id, timestamp,
+    #         "CPUUsageMax", "CPUUsageMin", "CPUUsageAVG",
+    #         "MemoryUsageMax", "MemoryUsageMin", "MemoryUsageAVG",
+    #         "TailLatencyMax", "TailLatencyMin", "TailLatencyAVG",
+    #         "DiskFreeMax", "DiskFreeMin", "DiskFreeAVG",
+    #         "SwapMemory_max", "SwapMemory_min", "SwapMemory_avg",
+    #         "DiskIOCounterBusyTimeMax", "DiskIOCounterBusyTimeMin", "DiskIOCounterBusyTimeAVG",
+    #         "NetIOCounterDropinMax", "NetIOCounterDropinMin", "NetIOCounterDropinAVG",
+    #         "NetIOCounterDropoutMax", "NetIOCounterDropoutMin", "NetIOCounterDropoutAVG"
+    #     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+    #     [
+    #         metric_id,
+    #         agg["NODE_ID"],
+    #         now,
+    #         agg["CPUUsageMax"],
+    #         agg["CPUUsageMin"],
+    #         agg["CPUUsageAVG"],
+    #         agg["MemoryUsageMax"],
+    #         agg["MemoryUsageMin"],
+    #         agg["MemoryUsageAVG"],
+    #         agg["TailLatencyMax"],
+    #         agg["TailLatencyMin"],
+    #         agg["TailLatencyAVG"],
+    #         agg["DiskFreeMax"],
+    #         agg["DiskFreeMin"],
+    #         agg["DiskFreeAVG"],
+    #         agg["SwapMemoryMax"],
+    #         agg["SwapMemoryMin"],
+    #         agg["SwapMemoryAVG"],
+    #         agg["DiskIOCounterBusyTimeMax"],
+    #         agg["DiskIOCounterBusyTimeMin"],
+    #         agg["DiskIOCounterBusyTimeAVG"],
+    #         agg["NetIOCounterDropinMax"],
+    #         agg["NetIOCounterDropinMin"],
+    #         agg["NetIOCounterDropinAVG"],
+    #         agg["NetIOCounterDropoutMax"],
+    #         agg["NetIOCounterDropoutMin"],
+    #         agg["NetIOCounterDropoutAVG"],
+    #     ],
+    # )
 
     logger.info("Insert OK node=%s", agg["NODE_ID"])
 
