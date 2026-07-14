@@ -1,30 +1,30 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: scheduler-plugin-role
+  name: scheduler-plugin-extra
 rules:
 - apiGroups: [""]
-  resources: ["nodes", "pods", "namespaces", "services", "replicationcontrollers", "persistentvolumes", "persistentvolumeclaims", "configmaps"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["apps"]
-  resources: ["replicasets", "statefulsets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["policy"]
-  resources: ["poddisruptionbudgets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["storage.k8s.io"]
-  resources: ["volumeattachments", "storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
-  verbs: ["get", "list", "watch"]
+  resources: ["pods/binding"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["pods/status"]
+  verbs: ["patch", "update"]
+- apiGroups: ["events.k8s.io"]
+  resources: ["events"]
+  verbs: ["create", "patch", "update"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: scheduler-plugin-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: scheduler-plugin-role
+  name: scheduler-plugin-extra-binding
 subjects:
 - kind: ServiceAccount
   name: scheduler-plugin
   namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: scheduler-plugin-extra
+  apiGroup: rbac.authorization.k8s.io
