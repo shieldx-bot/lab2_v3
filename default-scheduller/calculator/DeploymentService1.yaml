@@ -1,0 +1,210 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: services1
+  namespace: backend-0  # Defines the target namespace
+
+spec:
+  selector:
+    matchLabels:
+      app: services1
+  template:
+    metadata:
+      labels:
+        app: services1
+    spec:
+      containers:
+      - name: services1
+        image: shieldxbot/lab2-service1:v0.0.4
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TARGET_SERVICE_1
+          value: "http://services2.backend-0.svc.cluster.local:8082"
+        - name: NATS_URL
+          value: "nats://nats-js.default.svc.cluster.local:4222"
+        - name: REDIS_ADDR
+          value: "redis.default.svc.cluster.local:6379"
+        - name: NODE_ID
+          value: "0"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8081
+      nodeSelector:
+        disktype: "node-0"
+
+
+--- 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: services1
+  namespace: backend-1  # Defines the target namespace
+
+spec:
+  selector:
+    matchLabels:
+      app: services1
+  template:
+    metadata:
+      labels:
+        app: services1
+    spec:
+      containers:
+      - name: services1
+        image: shieldxbot/lab2-service1:v0.0.4
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TARGET_SERVICE_1
+          value: "http://services2.backend-0.svc.cluster.local:8082"
+        - name: NATS_URL
+          value: "nats://nats-js.default.svc.cluster.local:4222"
+        - name: REDIS_ADDR
+          value: "redis.default.svc.cluster.local:6379"
+        - name: NODE_ID
+          value: "1"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8081
+      nodeSelector:
+        disktype: "node-1"
+
+--- 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: services1
+  namespace: backend-2  # Defines the target namespace
+
+spec:
+  selector:
+    matchLabels:
+      app: services1
+  template:
+    metadata:
+      labels:
+        app: services1
+    spec:
+      containers:
+      - name: services1
+        image: shieldxbot/lab2-service1:v0.0.4
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TARGET_SERVICE_1
+          value: "http://services2.backend-0.svc.cluster.local:8082"
+        - name: NATS_URL
+          value: "nats://nats-js.default.svc.cluster.local:4222"
+        - name: REDIS_ADDR
+          value: "redis.default.svc.cluster.local:6379"
+        - name: NODE_ID
+          value: "2"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8081
+      nodeSelector:
+        disktype: "node-2"
+
+
+--- 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: services1
+  namespace: backend-3  # Defines the target namespace
+
+spec:
+  selector:
+    matchLabels:
+      app: services1
+  template:
+    metadata:
+      labels:
+        app: services1
+    spec:
+      containers:
+      - name: services1
+        image: shieldxbot/lab2-service1:v0.0.4
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TARGET_SERVICE_1
+          value: "http://services2.backend-0.svc.cluster.local:8082"
+        - name: NATS_URL
+          value: "nats://nats-js.default.svc.cluster.local:4222"
+        - name: REDIS_ADDR
+          value: "redis.default.svc.cluster.local:6379"
+        - name: NODE_ID
+          value: "3"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8081
+      nodeSelector:
+        disktype: "node-3"
+
+
+--- 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: services1
+  namespace: backend-4  # Defines the target namespace
+
+spec:
+  selector:
+    matchLabels:
+      app: services1
+  template:
+    metadata:
+      labels:
+        app: services1
+    spec:
+      containers:
+      - name: services1
+        image: shieldxbot/lab2-service1:v0.0.4
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TARGET_SERVICE_1
+          value: "http://services2.backend-0.svc.cluster.local:8082"
+        - name: NATS_URL
+          value: "nats://nats-js.default.svc.cluster.local:4222"
+        - name: REDIS_ADDR
+          value: "redis.default.svc.cluster.local:6379"
+        - name: NODE_ID
+          value: "4"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8081
+      nodeSelector:
+        disktype: "node-4"

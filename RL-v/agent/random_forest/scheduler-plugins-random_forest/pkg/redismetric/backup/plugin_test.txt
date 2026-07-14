@@ -1,0 +1,66 @@
+package redismetric
+
+import (
+	"testing"
+)
+
+func TestCalculateScore(t *testing.T) {
+	plugin := &RedisMetricPlugin{}
+
+	tests := []struct {
+		name    string
+		metrics MetricData
+		want    int64
+	}{
+		{
+			name: "empty usage gives max score",
+			metrics: MetricData{
+				CPUUsage:    0,
+				MemoryUsage: 0,
+			},
+			want: 100,
+		},
+		{
+			name: "full usage gives min score",
+			metrics: MetricData{
+				CPUUsage:    1,
+				MemoryUsage: 1,
+			},
+			want: 0,
+		},
+		{
+			name: "half usage gives middle score",
+			metrics: MetricData{
+				CPUUsage:    0.5,
+				MemoryUsage: 0.5,
+			},
+			want: 50,
+		},
+		{
+			name: "mixed usage values",
+			metrics: MetricData{
+				CPUUsage:    0.2,
+				MemoryUsage: 0.8,
+			},
+			want: 50,
+		},
+		{
+			name: "decimal truncation to int64",
+			metrics: MetricData{
+				CPUUsage:    0.33,
+				MemoryUsage: 0.33,
+			},
+			want: 67,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := plugin.calculateScore(tt.metrics)
+			t.Logf("metrics=%+v => calculated_score=%d", tt.metrics, got)
+			if got != tt.want {
+				t.Fatalf("calculateScore(%+v) = %d, want %d", tt.metrics, got, tt.want)
+			}
+		})
+	}
+}

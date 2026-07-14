@@ -1,0 +1,21 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: nats-js-scaler-object
+spec:
+  scaleTargetRef:
+    name: nats-js 
+  triggers: 
+  - type: nats-js
+    metadata:
+      natsServerMonitoringEndpoint: "nats-js-headless.default.svc.cluster.local:8222"
+      account: "$G"
+      stream: "mystream"
+      comsumer: "pull_consumer"
+      lagThreshold: "10"
+      activationLagThreshold: "15"
+      useHttps: "false"
+
+      
+
+  

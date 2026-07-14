@@ -1,0 +1,27 @@
+# test-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app
+  namespace: test-app
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: test-app
+  template:
+    metadata:
+      labels:
+        app: test-app
+    spec:
+      schedulerName:  my-scheduler   # Dùng custom scheduler
+      containers:
+      - name: nginx
+        image: nginx:latest
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi

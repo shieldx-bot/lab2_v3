@@ -1,0 +1,136 @@
+package redismetric
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog/v2"
+	fwk "k8s.io/kube-scheduler/framework"
+	"k8s.io/kubernetes/pkg/scheduler/framework"
+)
+
+const Name = "RedisMetricPlugin"
+
+// MetricData định nghĩa cấu trúc dữ liệu sẽ nhận từ Redis
+type MetricData struct {
+	CPUUsage    float64 `json:"cpu_usage"`
+	MemoryUsage float64 `json:"memory_usage"`
+}
+
+// CacheItem là một mục trong bộ nhớ đệm cục bộ
+type CacheItem struct {
+	Data      MetricData
+	ExpiresAt time.Time
+}
+
+// RedisMetricPlugin là struct chính của plugin
+type RedisMetricPlugin struct {
+	handle   framework.Handle
+	client   *redis.Client
+	cache    sync.Map // Bộ nhớ đệm an toàn cho goroutine
+	cacheTTL time.Duration
+}
+
+// Name trả về tên của plugin, dùng để đăng ký
+func (rmp *RedisMetricPlugin) Name() string {
+	return Name
+}
+
+// Score là hàm quan trọng nhất, được gọi để chấm điểm cho từng node
+func (rmp *RedisMetricPlugin) Score(ctx context.Context, state fwk.CycleState, p *v1.Pod, nodeInfo fwk.NodeInfo) (int64, *fwk.Status) {
+	node := nodeInfo.Node()
+	if node == nil {
+		return 50, nil
+	}
+	nodeName := node.Name
+
+	// 1. Kiểm tra cache trước
+	if item, ok := rmp.cache.Load(nodeName); ok {
+		cached := item.(CacheItem)
+		if time.Now().Before(cached.ExpiresAt) {
+			klog.V(4).Infof("Dùng dữ liệu cache cho node %s", nodeName)
+			return rmp.calculateScore(cached.Data), nil
+		}
+	}
+
+	// 2. Cache không có hoặc đã hết hạn, gọi Redis
+	metrics, err := rmp.getMetricsFromRedis(ctx, nodeName)
+	if err != nil {
+		klog.Warningf("Lỗi lấy metrics từ Redis cho node %s: %v, dùng điểm mặc định là 50", nodeName, err)
+		// Trả về điểm 50 (trung bình) để tránh ảnh hưởng đến kết quả
+		return 50, nil
+	}
+
+	// 3. Lưu vào cache
+	rmp.cache.Store(nodeName, CacheItem{
+		Data:      metrics,
+		ExpiresAt: time.Now().Add(rmp.cacheTTL),
+	})
+
+	// 4. Tính điểm
+	return rmp.calculateScore(metrics), nil
+}
+
+// getMetricsFromRedis kết nối và lấy dữ liệu từ Redis
+func (rmp *RedisMetricPlugin) getMetricsFromRedis(ctx context.Context, nodeName string) (MetricData, error) {
+	key := fmt.Sprintf("node:metrics:%s", nodeName)
+	val, err := rmp.client.Get(ctx, key).Result()
+	if err != nil {
+		return MetricData{}, fmt.Errorf("lỗi khi gọi Redis GET: %w", err)
+	}
+
+	var metrics MetricData
+	if err := json.Unmarshal([]byte(val), &metrics); err != nil {
+		return MetricData{}, fmt.Errorf("lỗi giải mã JSON: %w", err)
+	}
+
+	return metrics, nil
+}
+
+// calculateScore chứa logic tính điểm của bạn (ưu tiên node nào rảnh hơn)
+func (rmp *RedisMetricPlugin) calculateScore(metrics MetricData) int64 {
+	// Công thức: node có CPU và RAM rảnh càng nhiều thì điểm càng cao (max 100)
+	cpuScore := (1.0 - metrics.CPUUsage) * 50
+	memScore := (1.0 - metrics.MemoryUsage) * 50
+	totalScore := int64(cpuScore + memScore)
+	klog.Infof("RedisMetricPlugin score calculated: cpu_usage=%.3f memory_usage=%.3f cpu_score=%.2f memory_score=%.2f total=%d",
+		metrics.CPUUsage, metrics.MemoryUsage, cpuScore, memScore, totalScore)
+	return totalScore
+}
+
+// ScoreExtensions là một interface bắt buộc
+func (rmp *RedisMetricPlugin) ScoreExtensions() framework.ScoreExtensions {
+	return nil
+}
+
+// New là hàm khởi tạo plugin
+func New(ctx context.Context, obj runtime.Object, h framework.Handle) (framework.Plugin, error) {
+	redisAddr := "redis-service.default.svc.cluster.local:6379" // Địa chỉ service Redis
+	client := redis.NewClient(&redis.Options{
+		Addr:         redisAddr,
+		Password:     "",
+		DB:           0,
+		PoolSize:     10, // Giới hạn số lượng kết nối
+		DialTimeout:  200 * time.Millisecond,
+		ReadTimeout:  200 * time.Millisecond,
+		WriteTimeout: 200 * time.Millisecond,
+	})
+
+	// Kiểm tra kết nối
+	if err := client.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("không thể kết nối đến Redis: %w", err)
+	}
+	klog.Info("RedisMetricPlugin đã kết nối thành công đến Redis")
+
+	return &RedisMetricPlugin{
+		handle:   h,
+		client:   client,
+		cacheTTL: 5 * time.Second, // Cache dữ liệu trong 5 giây
+	}, nil
+}

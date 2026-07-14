@@ -1,0 +1,21 @@
+apiVersion: kubescheduler.config.k8s.io/v1
+kind: KubeSchedulerConfiguration
+clientConnection:
+  kubeconfig: ""
+leaderElection:
+  leaderElect: false
+profiles:
+- schedulerName: my-scheduler
+  plugins:
+    multiPoint:
+      disabled:
+      - name: DynamicResources
+    score:
+      enabled:
+      - name: RedisMetricPlugin
+        weight: 1000
+      - name: NodeResourcesBalancedAllocation
+      - name: ImageLocality
+    preScore:
+      enabled:
+      - name: NodeResourcesBalancedAllocation

@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-service
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: db-service
+  template:
+    metadata:
+      labels:
+        app: db-service
+    spec:
+      
+      containers:
+      - name: db-service
+        image: shieldxbot/go-db-service:v1.0.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "150m"
+          limits:
+            memory: "256Mi"
+            cpu: "300m"
+    
+       

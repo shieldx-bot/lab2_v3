@@ -1,0 +1,9 @@
+env
+agent/XGBoost/cloudflared
+web-registeter/db-service/node_modules/ 
+web-registeter/api-service/node_modules/ node_modules/
+**/node_modules/
+node_modules/
+**/venv/
+**/env/
+

@@ -1,0 +1,26 @@
+table_definition: |
+  CREATE TABLE my_keyspace.users (
+    user_id uuid PRIMARY KEY,
+    first_name text,
+    last_name text,
+    age int
+  )
+
+columnspec:
+  - name: user_id
+    size: fixed(36)
+  - name: first_name
+    size: uniform(5..10)
+  - name: last_name
+    size: uniform(5..10)
+  - name: age
+    size: uniform(18..80)
+
+insert:
+  partitions: fixed(1)
+  select: fixed(1)/10
+
+queries:
+  select:
+    cql: SELECT * FROM my_keyspace.users WHERE user_id = ?
+    fields: user_id

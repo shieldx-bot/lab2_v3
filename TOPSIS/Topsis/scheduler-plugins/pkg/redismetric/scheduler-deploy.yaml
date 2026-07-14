@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler-plugin
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: scheduler
+  template:
+    metadata:
+      labels:
+        component: scheduler
+    spec:
+      serviceAccountName: scheduler-plugin   # tạo nếu chưa có
+      containers:
+      - name: scheduler
+        image: shieldxbot/kube-scheduler:v1.0.2
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: REDIS_ADDR
+          value: 54.255.223.141:6379
+        - name: REDIS_PASSWORD
+          value: Vananh12345
+        args:
+        - --config=/etc/kubernetes/scheduler-config.yaml
+        - --feature-gates=DynamicResourceAllocation=false
+        - --v=4
+        volumeMounts:
+        - name: config
+          mountPath: /etc/kubernetes/scheduler-config.yaml
+          subPath: scheduler-config.yaml
+      volumes:
+      - name: config
+        configMap:
+          name: scheduler-config

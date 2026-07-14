@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: services3
+  namespace: backend-0  # Defines the target namespace
+
+spec:
+  selector:
+    matchLabels:
+      app: services3
+  template:
+    metadata:
+      labels:
+        app: services3
+    spec:
+      containers:
+      - name: services3
+        image: shieldxbot/lab2-metrix:v0.0.7
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_USERNAME
+          value: "username"
+        - name: DB_PASSWORD
+          value: "password"
+        - name: PG_URI
+          value: "uri"
+        - name: NODE_ID
+          value: "0"
+        - name: URL 
+          value: "postgresql://app:9KACNalap4M1acIUvLT1EdecQ84nLSjStOL4qiVsaOBV1Em9zmHeaNElE4JkNTXE@metricdb-rw.default.svc.cluster.local:5432/app"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8083
+      nodeSelector:
+        disktype: "node-0"
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: services3
+  namespace: backend-1  # Defines the target namespace
+
+spec:
+  selector:
+    matchLabels:
+      app: services3
+  template:
+    metadata:
+      labels:
+        app: services3
+    spec:
+      containers:
+      - name: services3
+        image: shieldxbot/lab2-metrix:v0.0.7
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: metricdb-app
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: metricdb-app
+              key: password
+        - name: URL
+          value: "postgresql://app:9KACNalap4M1acIUvLT1EdecQ84nLSjStOL4qiVsaOBV1Em9zmHeaNElE4JkNTXE@metricdb-rw.default.svc.cluster.local:5432/app"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8083
+      nodeSelector:
+        disktype: "node-1"
+
+# The other deployments (backend-2, 3, 4) were commented out, so I'm omitting them to keep the file clean.

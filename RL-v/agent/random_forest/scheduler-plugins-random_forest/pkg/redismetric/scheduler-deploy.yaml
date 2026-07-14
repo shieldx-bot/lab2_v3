@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler-plugin
+  namespace: kube-system
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      component: scheduler
+  template:
+    metadata:
+      labels:
+        component: scheduler
+    spec:
+      serviceAccountName: scheduler-plugin
+      containers:
+      - name: scheduler 
+        image: shieldxbot/kube-scheduler_rl:v1.0.0
+        imagePullPolicy: IfNotPresent
+        resources: 
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+        env:
+        - name: REDIS_ADDR
+          value: "redis.default.svc.cluster.local:6379"
+        - name: str
+          value: "multi-node-demo-worker"
+        args:
+        - --config=/etc/kubernetes/scheduler-config.yaml
+        - --feature-gates=DynamicResourceAllocation=false
+        - --v=4
+        volumeMounts:
+        - name: config
+          mountPath: /etc/kubernetes/scheduler-config.yaml
+          subPath: scheduler-config.yaml
+      volumes:
+      - name: config
+        configMap:
+          name: scheduler-config

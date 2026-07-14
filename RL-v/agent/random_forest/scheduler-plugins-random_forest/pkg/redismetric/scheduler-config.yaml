@@ -1,0 +1,23 @@
+apiVersion: kubescheduler.config.k8s.io/v1
+kind: KubeSchedulerConfiguration
+clientConnection:
+  kubeconfig: ""
+leaderElection:
+  leaderElect: false
+profiles:
+- schedulerName: my-scheduler-random-forest
+  plugins:
+    multiPoint:
+      enabled:
+      - name: TaintToleration
+      - name: NodeResourcesFit
+      - name: NodeAffinity
+      - name: VolumeBinding
+      - name: PodTopologySpread
+      - name: InterPodAffinity
+      - name: NodeResourcesBalancedAllocation
+      - name: ImageLocality
+    score:
+      enabled:
+      - name: RedisMetricPlugin
+        weight: 1000

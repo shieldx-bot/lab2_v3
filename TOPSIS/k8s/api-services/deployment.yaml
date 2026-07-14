@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-services
+spec:
+  replicas: 2  # minReplicaCount từ KEDA ScaledObject
+  selector:
+    matchLabels:
+      app: api-services
+  template:
+    metadata:
+      labels:
+        app: api-services
+    spec:
+      schedulerName:  my-scheduler
+      containers:
+      - name: api-services
+        image: shieldxbot/go-api-services:v1.0.5
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 4000
+        resources:
+          requests:
+            memory: "50Mi"
+            cpu: "50m"
+          limits:
+            memory: "106Mi"
+            cpu: "100m"
+   

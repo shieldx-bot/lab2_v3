@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-06-14T09:23:16.062Z",
+  "duration_s": "7",
+  "total_requests": 2980,
+  "success_rate": "100.0%",
+  "failed": 0,
+  "cache_hit_rate": "100.0%",
+  "cache_miss_rate": "100.0%",
+  "avg_ms": "3.6",
+  "p95_ms": "13.2"
+}

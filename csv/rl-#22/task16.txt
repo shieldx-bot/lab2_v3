@@ -1,0 +1,52 @@
+  █ THRESHOLDS 
+
+    cache_hit_rate
+    ✓ 'rate>0.5' rate=100.00%
+
+    cache_response_time
+    ✓ 'p(95)<200' p(95)=29.296511
+
+    db_response_time
+    ✓ 'p(95)<3000' p(95)=0
+
+    http_req_duration
+    ✓ 'p(50)<500' p(50)=24.65ms
+    ✓ 'p(90)<1000' p(90)=34.51ms
+    ✓ 'p(95)<2000' p(95)=263.55ms
+    ✓ 'p(99)<5000' p(99)=297.13ms
+
+    http_req_failed
+    ✓ 'rate<0.05' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 353074 1469.15637/s
+    checks_succeeded...: 80.04% 282626 out of 353074
+    checks_failed......: 19.95% 70448 out of 353074
+
+    ✗ HTTP 200
+      ↳  99% — ✓ 176536 / ✗ 1
+    ✗ Business success
+      ↳  60% — ✓ 106090 / ✗ 70447
+
+    CUSTOM
+    cache_hit_rate.................: 100.00% 106090 out of 106090
+    cache_response_time............: avg=24.960356 min=20.462147 med=24.43148 max=133.994333 p(90)=27.505795 p(95)=29.296511
+    db_response_time...............: avg=0         min=0         med=0        max=0          p(90)=0         p(95)=0        
+
+    HTTP
+    http_req_duration..............: avg=48.61ms   min=20.46ms   med=24.65ms  max=2.05s      p(90)=34.51ms   p(95)=263.55ms 
+      { expected_response:true }...: avg=48.6ms    min=20.46ms   med=24.65ms  max=698.13ms   p(90)=34.5ms    p(95)=263.55ms 
+    http_req_failed................: 0.00%   1 out of 176537
+    http_reqs......................: 176537  734.578185/s
+
+    EXECUTION
+    iteration_duration.............: avg=548.98ms  min=122.25ms  med=549.01ms max=2.94s      p(90)=869.38ms  p(95)=909.34ms 
+    iterations.....................: 176537  734.578185/s
+    vus............................: 15      min=3                max=749
+    vus_max........................: 750     min=750              max=750
+
+    NETWORK
+    data_received..................: 77 MB   320 kB/s
+    data_sent......................: 15 MB   62 kB/s

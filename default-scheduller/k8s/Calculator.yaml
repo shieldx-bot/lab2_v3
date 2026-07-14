@@ -1,0 +1,35 @@
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: services1
+#   namespace: calculator  # Defines the target namespace
+
+# spec:
+#   selector:
+#     matchLabels:
+#       app: calculator
+#   template:
+#     metadata:
+#       labels:
+#         app: calculator
+#     spec:
+#       containers:
+#       - name: calculator
+#         image: shieldxbot/calculator:v0.0.3
+#         imagePullPolicy: IfNotPresent
+#         env:
+#         - name: TARGET_SERVICE_1
+#           value: "http://services2.backend-0.svc.cluster.local:8082"
+#         - name: NODE_ID
+#           value: "0"
+#         resources:
+#           limits:
+#             memory: "128Mi"
+#             cpu: "500m"
+#           requests:
+#             memory: "128Mi"
+#             cpu: "500m"
+#         ports:
+#         - containerPort: 8081
+#       nodeSelector:
+#         disktype: "calculator"
