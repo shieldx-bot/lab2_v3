@@ -25,10 +25,10 @@ logging.basicConfig(
 logger = logging.getLogger("metric-worker")
 
 NODE_ID = "1"
-REDIS_HOST = os.getenv("REDIS_HOST", "192.168.24.8")
+REDIS_HOST = os.getenv("REDIS_HOST", "192.168.0.5")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 SCYLLA_HOSTS = os.getenv(
-    "SCYLLA_HOSTS", "192.168.24.13,192.168.24.15,192.168.24.19"
+    "SCYLLA_HOSTS", "192.168.0.5,192.168.0.6,192.168.0.7"
 ).split(",")
 SCYLLA_KEYSPACE = os.getenv("SCYLLA_KEYSPACE", "my_keyspace")
 SCYLLA_DC = os.getenv("SCYLLA_DC", "datacenter1")
