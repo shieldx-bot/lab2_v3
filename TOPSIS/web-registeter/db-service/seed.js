@@ -1,8 +1,7 @@
 const cassandra = require("cassandra-driver");
-require("dotenv").config();
-
+ 
 const client = new cassandra.Client({
-  contactPoints: ["192.168.0.6"],
+  contactPoints: ["localhost:9042"],
   localDataCenter: "datacenter1",
   keyspace: "my_keyspace",
 });
@@ -150,6 +149,11 @@ const tkbList = [
   "Thu 7-Kiet 3",
 ];
 
+// Helper: số nguyên ngẫu nhiên trong [min, max]
+function randInt(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
 // ============================================
 // BUILD DATA
 // ============================================
@@ -183,6 +187,33 @@ function buildSinhViens() {
       so_dien_thoai: `0909123${String((i - 1) % 10000).padStart(4, "0")}`,
       ma_lop: `CNTT${String(((i - 1) % 20) + 1).padStart(2, "0")}`,
       created_at: new Date(),
+      updated_at: new Date(),
+    });
+  }
+  return rows;
+}
+
+// MỚI: hồ sơ học vụ phục vụ 9/10 tiêu chí TOPSIS-Business (C1-C6, C8-C10).
+// Giá trị sinh ngẫu nhiên nhưng có thiên hướng thực tế: đa số sinh viên
+// "bình thường" (nguy cơ thấp, ít lần thất bại), số ít có hồ sơ "cấp thiết
+// cao" (năm cuối, nhiều lần trượt) để tạo dữ liệu đủ đa dạng cho TOPSIS xếp
+// hạng có ý nghĩa khi test tải.
+function buildSinhVienHoSos(sinhViens) {
+  const rows = [];
+  for (const sv of sinhViens) {
+    const capThietCao = Math.random() < 0.15; // ~15% sinh viên thuộc nhóm cấp thiết cao
+
+    rows.push({
+      ma_sinh_vien: sv.ma_sinh_vien,
+      uu_tien_bat_buoc: randInt(1, 5), // C1
+      nguy_co_cham_tot_nghiep: capThietCao ? randInt(4, 5) : randInt(1, 3), // C2
+      so_ky_da_cho: capThietCao ? randInt(2, 5) : randInt(0, 1), // C3
+      so_lan_dang_ky_that_bai: capThietCao ? randInt(1, 3) : 0, // C4
+      so_tin_chi_tich_luy: randInt(0, 140), // C5
+      khoi_luong_hoc_ky_hien_tai: randInt(10, 22), // C6
+      muc_phu_hop_nguyen_vong: randInt(1, 5), // C8
+      so_lop_thay_the: randInt(0, 5), // C9
+      kha_nang_mo_them_lop: randInt(1, 5), // C10
       updated_at: new Date(),
     });
   }
@@ -251,7 +282,12 @@ function buildDangKys(sinhViens, lopHocPhans) {
           today.getTime() -
             Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000),
         ),
+        // Dữ liệu seed đại diện cho các đăng ký ĐÃ TỒN TẠI TRƯỚC (lịch sử),
+        // nên vẫn để thẳng 'DaDangKy' -- KHÔNG đi qua TOPSIS-Batch. Các
+        // nguyện vọng MỚI khi load-test qua API /DangKyMonHoc mới bắt đầu ở
+        // trạng thái 'ChoXuLy' (xem handleDangKyMonHoc trong db-service).
         trang_thai: "DaDangKy",
+        ly_do_tu_choi: null,
         created_at: new Date(),
         updated_at: new Date(),
       });
@@ -312,6 +348,34 @@ async function insertSinhViens(sinhViens) {
   }
 }
 
+// MỚI: seed bảng sinh_vien_ho_so, nguồn dữ liệu cho TOPSIS-Business.
+async function insertSinhVienHoSos(hoSos) {
+  const query = `INSERT INTO sinh_vien_ho_so (ma_sinh_vien, uu_tien_bat_buoc, nguy_co_cham_tot_nghiep, so_ky_da_cho, so_lan_dang_ky_that_bai, so_tin_chi_tich_luy, khoi_luong_hoc_ky_hien_tai, muc_phu_hop_nguyen_vong, so_lop_thay_the, kha_nang_mo_them_lop, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < hoSos.length; i += BATCH_SIZE) {
+    const batch = hoSos.slice(i, i + BATCH_SIZE).map((hs) => ({
+      query,
+      params: [
+        hs.ma_sinh_vien,
+        hs.uu_tien_bat_buoc,
+        hs.nguy_co_cham_tot_nghiep,
+        hs.so_ky_da_cho,
+        hs.so_lan_dang_ky_that_bai,
+        hs.so_tin_chi_tich_luy,
+        hs.khoi_luong_hoc_ky_hien_tai,
+        hs.muc_phu_hop_nguyen_vong,
+        hs.so_lop_thay_the,
+        hs.kha_nang_mo_them_lop,
+        hs.updated_at,
+      ],
+    }));
+    await client.batch(batch, { prepare: true });
+    if (i % 1000 === 0 && i > 0)
+      console.log(`   da insert ho so sinh vien ${i}/${hoSos.length}`);
+  }
+}
+
 async function insertLopHocPhans(lopHocPhans) {
   const query = `INSERT INTO lop_hoc_phan (ma_lop_hoc_phan, ma_mon_hoc, ten_lop_hoc_phan, phong_hoc, thoi_khoa_bieu, so_luong_toi_da, trang_thai, ngay_bat_dau, ngay_ket_thuc, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
@@ -355,7 +419,7 @@ async function insertDangKys(dangKys) {
 
     for (const dk of dangKys.slice(i, i + BATCH_SIZE)) {
       batch.push({
-        query: `INSERT INTO dang_ky (ma_dang_ky, ma_sinh_vien, ma_lop_hoc_phan, ho, ten, ten_lop_hoc_phan, ma_mon_hoc, phong_hoc, thoi_khoa_bieu, so_luong_toi_da, hinh_thuc, ngay_dang_ky, trang_thai, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        query: `INSERT INTO dang_ky (ma_dang_ky, ma_sinh_vien, ma_lop_hoc_phan, ho, ten, ten_lop_hoc_phan, ma_mon_hoc, phong_hoc, thoi_khoa_bieu, so_luong_toi_da, hinh_thuc, ngay_dang_ky, trang_thai, ly_do_tu_choi, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         params: [
           dk.ma_dang_ky,
           dk.ma_sinh_vien,
@@ -370,6 +434,7 @@ async function insertDangKys(dangKys) {
           dk.hinh_thuc,
           dk.ngay_dang_ky,
           dk.trang_thai,
+          dk.ly_do_tu_choi,
           dk.created_at,
           dk.updated_at,
         ],
@@ -404,6 +469,7 @@ async function truncateAllTables() {
     "dang_ky",
     "lop_hoc_phan_counter",
     "lop_hoc_phan",
+    "sinh_vien_ho_so", // MỚI
     "sinh_vien",
     "mon_hoc",
   ];
@@ -437,8 +503,9 @@ async function run() {
     console.log("🏗️  Dang tao du lieu...");
     const monHocs = buildMonHocs();
     const sinhViens = buildSinhViens();
+    const sinhVienHoSos = buildSinhVienHoSos(sinhViens); // MỚI
     console.log(
-      `   ✅ Da tao ${monHocs.length} mon hoc, ${sinhViens.length} sinh vien`,
+      `   ✅ Da tao ${monHocs.length} mon hoc, ${sinhViens.length} sinh vien, ${sinhVienHoSos.length} ho so hoc vu`,
     );
 
     // 3. INSERT MÔN HỌC
@@ -450,6 +517,11 @@ async function run() {
     console.log("\n👨‍🎓 Dang seed sinh vien...");
     await insertSinhViens(sinhViens);
     console.log(`✅ Da seed ${sinhViens.length} sinh vien`);
+
+    // 4b. INSERT HỒ SƠ HỌC VỤ (MỚI -- nguồn dữ liệu cho TOPSIS-Business)
+    console.log("\n🧾 Dang seed ho so hoc vu (TOPSIS)...");
+    await insertSinhVienHoSos(sinhVienHoSos);
+    console.log(`✅ Da seed ${sinhVienHoSos.length} ho so hoc vu`);
 
     // 5. TẠO & INSERT LỚP HỌC PHẦN
     console.log("\n🏫 Dang tao va seed lop hoc phan...");
@@ -473,6 +545,7 @@ async function run() {
     console.log(`📊 Du lieu da seed:`);
     console.log(`   - Mon hoc: ${monHocList.length}`);
     console.log(`   - Sinh vien: ${sinhViens.length}`);
+    console.log(`   - Ho so hoc vu (TOPSIS): ${sinhVienHoSos.length}`);
     console.log(`   - Lop hoc phan: ${lopHocPhans.length}`);
     console.log(`   - Dang ky: ${dangKys.length}`);
     console.log("\n📋 Ma lop hoc phan (vi du):");
