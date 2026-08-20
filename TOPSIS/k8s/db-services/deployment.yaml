@@ -16,7 +16,7 @@ spec:
       # schedulerName: my-scheduler
       containers:
       - name: db-service
-        image: shieldxbot/go-db-service:v1.0.8
+        image: shieldxbot/go-db-service:v1.0.9
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000

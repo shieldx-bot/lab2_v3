@@ -869,7 +869,7 @@ func handleGetDanhSachMonHocPhanDangKy(query map[string]interface{}) DBResponse 
 		ThoiKhoaBieu  string
 		SoLuongToiDa  int
 		HinhThuc      string
-		NgayDangKy    string
+		NgayDangKy    time.Time
 		TrangThai     string
 	}
 	for iter.Scan(&item.MaDangKy, &item.MaSinhVien, &item.Ho, &item.Ten, &item.MaLopHocPhan, &item.TenLopHocPhan, &item.MaMonHoc, &item.PhongHoc, &item.ThoiKhoaBieu, &item.SoLuongToiDa, &item.HinhThuc, &item.NgayDangKy, &item.TrangThai) {
@@ -885,18 +885,20 @@ func handleGetDanhSachMonHocPhanDangKy(query map[string]interface{}) DBResponse 
 			"thoi_khoa_bieu":   item.ThoiKhoaBieu,
 			"so_luong_toi_da":  item.SoLuongToiDa,
 			"hinh_thuc":        item.HinhThuc,
-			"ngay_dang_ky":     item.NgayDangKy,
+			"ngay_dang_ky":     item.NgayDangKy.Format("2006-01-02 15:04:05"),
 			"trang_thai":       item.TrangThai,
 		}
 		if dotDangKy != "" {
-			if dt, err := time.Parse(time.RFC3339, item.NgayDangKy); err == nil {
-				if dt.Format("2006-01-02") == dotDangKy {
-					results = append(results, row)
-				}
+			// lọc theo ngày (yyyy-mm-dd) của ngay_dang_ky
+			if item.NgayDangKy.Format("2006-01-02") == dotDangKy {
+				results = append(results, row)
 			}
 		} else {
 			results = append(results, row)
 		}
+	}
+	if err := iter.Close(); err != nil {
+		log.Printf("⚠️ handleGetDanhSachMonHocPhanDangKy: iter.Close lỗi: %v", err)
 	}
 
 	if len(results) == 0 {
@@ -958,8 +960,8 @@ func handleGetDanhSachLopHocPhan(query map[string]interface{}) DBResponse {
 		ThoiKhoaBieu  string
 		SoLuongToiDa  int
 		TrangThai     string
-		NgayBatDau    string
-		NgayKetThuc   string
+		NgayBatDau    time.Time
+		NgayKetThuc   time.Time
 	}
 	var row struct {
 		MaLopHocPhan  string
@@ -969,11 +971,14 @@ func handleGetDanhSachLopHocPhan(query map[string]interface{}) DBResponse {
 		ThoiKhoaBieu  string
 		SoLuongToiDa  int
 		TrangThai     string
-		NgayBatDau    string
-		NgayKetThuc   string
+		NgayBatDau    time.Time
+		NgayKetThuc   time.Time
 	}
 	for iter.Scan(&row.MaLopHocPhan, &row.TenLopHocPhan, &row.MaMonHoc, &row.PhongHoc, &row.ThoiKhoaBieu, &row.SoLuongToiDa, &row.TrangThai, &row.NgayBatDau, &row.NgayKetThuc) {
 		lhpRows = append(lhpRows, row)
+	}
+	if err := iter.Close(); err != nil {
+		log.Printf("⚠️ handleGetDanhSachLopHocPhan: iter.Close lỗi: %v", err)
 	}
 
 	if len(lhpRows) == 0 {
@@ -1001,8 +1006,8 @@ func handleGetDanhSachLopHocPhan(query map[string]interface{}) DBResponse {
 			"thoi_khoa_bieu":   r.ThoiKhoaBieu,
 			"so_luong_toi_da":  r.SoLuongToiDa,
 			"trang_thai":       r.TrangThai,
-			"ngay_bat_dau":     r.NgayBatDau,
-			"ngay_ket_thuc":    r.NgayKetThuc,
+			"ngay_bat_dau":     r.NgayBatDau.Format("2006-01-02 15:04:05"),
+			"ngay_ket_thuc":    r.NgayKetThuc.Format("2006-01-02 15:04:05"),
 		}
 		if c, ok := counterMap[r.MaLopHocPhan]; ok {
 			rowMap["so_luong_da_dang_ky"] = c
