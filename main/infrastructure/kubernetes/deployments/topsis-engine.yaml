@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: topsis-engine
+  namespace: course-reg-exp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: topsis-engine
+  template:
+    metadata:
+      labels:
+        app: topsis-engine
+    spec:
+      containers:
+      - name: worker
+        image: your-registry/topsis-engine:latest
+        env:
+        - name: WEIGHTS_JSON
+          value: '{"mandatory":0.2,"graduation_risk":0.25,"waiting_semesters":0.2,"alternative_classes":0.15,"schedule_conflict":0.1,"time_submitted":0.1}'

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: experiment-config
+  namespace: course-reg-exp
+data:
+  method: "M4"   # sẽ được cập nhật trước mỗi thí nghiệm

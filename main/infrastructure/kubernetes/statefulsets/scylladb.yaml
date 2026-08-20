@@ -1,0 +1,26 @@
+# Cài đặt Scylla Operator (dùng Helm)
+# scripts/setup-cluster.sh sẽ thực hiện: helm install scylla-operator scylla-operator/scylla-operator --create-namespace --namespace scylla-operator
+
+# Sau đó tạo ScyllaCluster:
+apiVersion: scylla.scylladb.com/v1
+kind: ScyllaCluster
+metadata:
+  name: scylla
+  namespace: course-reg-exp
+spec:
+  version: 5.4.3
+  agentVersion: 3.2.6
+  datacenter:
+    name: dc1
+    racks:
+    - name: rack1
+      members: 3
+      storage:
+        capacity: 50Gi
+      resources:
+        requests:
+          cpu: 2
+          memory: 4Gi
+        limits:
+          cpu: 4
+          memory: 8Gi

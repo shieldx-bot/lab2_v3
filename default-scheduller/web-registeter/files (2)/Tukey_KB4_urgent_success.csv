@@ -1,0 +1,7 @@
+group1,group2,meandiff,p-adj,lower,upper,reject
+FIFO,Hybrid-EWM,51.783,0.0,51.0834,52.4826,True
+FIFO,Rule-based,6.6746,0.0,5.975,7.3742,True
+FIFO,TOPSIS-EWM,51.6822,0.0,50.9825,52.3818,True
+Hybrid-EWM,Rule-based,-45.1084,0.0,-45.808,-44.4088,True
+Hybrid-EWM,TOPSIS-EWM,-0.1008,0.9818,-0.8005,0.5988,False
+Rule-based,TOPSIS-EWM,45.0076,0.0,44.3079,45.7072,True

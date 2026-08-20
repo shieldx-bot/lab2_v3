@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dragonfly
+  namespace: course-reg-exp
+spec:
+  serviceName: dragonfly
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dragonfly
+  template:
+    metadata:
+      labels:
+        app: dragonfly
+    spec:
+      containers:
+      - name: dragonfly
+        image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+        args: ["--maxmemory", "4gb", "--save_schedule", "*:*:*:*"]
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: dragonfly-data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: dragonfly-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dragonfly
+  namespace: course-reg-exp
+spec:
+  selector:
+    app: dragonfly
+  ports:
+  - port: 6379

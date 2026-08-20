@@ -1,0 +1,8 @@
+*.log
+*.pid
+results/
+__pycache__/
+.env
+secrets/
+*.tar.gz
+kubeconfig

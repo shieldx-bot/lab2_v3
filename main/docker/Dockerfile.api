@@ -1,0 +1,10 @@
+FROM golang:1.21-alpine AS build
+WORKDIR /app
+COPY services/api-gateway/ .
+RUN go build -o api-gateway .
+
+FROM alpine:3.18
+RUN apk add --no-cache ca-certificates
+COPY --from=build /app/api-gateway /usr/local/bin/api-gateway
+EXPOSE 8080
+CMD ["api-gateway"]

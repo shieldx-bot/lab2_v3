@@ -1,0 +1,6 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY services/rule-engine/requirements.txt .
+RUN pip install -r requirements.txt
+COPY services/rule-engine/ .
+CMD ["python", "worker.py"]

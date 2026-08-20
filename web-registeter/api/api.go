@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -25,6 +26,8 @@ import (
 type Config struct {
 	RedisWriteAddr string
 	RedisReadAddrs []string
+	RedisUsername  string
+	RedisPassword  string
 	NATSServers    []string
 	NATSTimeout    time.Duration
 	CacheTTL       time.Duration
@@ -32,9 +35,11 @@ type Config struct {
 }
 
 func LoadConfig() Config {
-	// Parse mảng chuỗi
-	redisReadAddrs := strings.Split(getEnv("REDIS_READ_ADDRS", "192.168.0.2:6379"), ",")
-	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://192.168.0.2:4222"), ",")
+	// ---- Redis/Dragonfly (Railway public TCP proxy): HARDCODE ----
+	redisWriteAddr := "altaria.proxy.rlwy.net:32558"
+	redisReadAddrs := []string{redisWriteAddr}
+
+	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://railway-app.tail0d7b33.ts.net:4222"), ",")
 
 	// Parse định dạng thời gian (time.Duration)
 	natsTimeout, err := time.ParseDuration(getEnv("NATS_TIMEOUT", "8s"))
@@ -48,8 +53,10 @@ func LoadConfig() Config {
 	}
 
 	return Config{
-		RedisWriteAddr: getEnv("REDIS_WRITE_ADDR", "192.168.0.2:6379"),
+		RedisWriteAddr: redisWriteAddr,
 		RedisReadAddrs: redisReadAddrs,
+		RedisUsername:  "default",
+		RedisPassword:  "JySsMB~bB4P.xoseA5yA_X0AtrZKEqg~",
 		NATSServers:    natsServers,
 		NATSTimeout:    natsTimeout,
 		CacheTTL:       cacheTTL,
@@ -107,14 +114,24 @@ type CacheEntry struct {
 func initRedis() error {
 	rc := &RedisCluster{}
 
+	// Railway public TCP proxy thường đi kèm TLS: bật qua REDIS_TLS=true
+	redisTLS := getEnv("REDIS_TLS", "false") == "true"
+	var tlsConf *tls.Config
+	if redisTLS {
+		tlsConf = &tls.Config{MinVersion: tls.VersionTLS12}
+	}
+
 	w := redis.NewClient(&redis.Options{
 		Addr:         config.RedisWriteAddr,
+		Username:     config.RedisUsername,
+		Password:     config.RedisPassword,
 		PoolSize:     100,
 		MinIdleConns: 20,
 		ReadTimeout:  2 * time.Second,
 		WriteTimeout: 2 * time.Second,
 		PoolTimeout:  4 * time.Second,
 		MaxRetries:   1,
+		TLSConfig:    tlsConf,
 	})
 
 	if err := w.Ping(context.Background()).Err(); err != nil {
@@ -126,12 +143,15 @@ func initRedis() error {
 	for _, addr := range config.RedisReadAddrs {
 		r := redis.NewClient(&redis.Options{
 			Addr:         addr,
+			Username:     config.RedisUsername,
+			Password:     config.RedisPassword,
 			PoolSize:     100,
 			MinIdleConns: 20,
 			ReadTimeout:  2 * time.Second,
 			WriteTimeout: 2 * time.Second,
 			PoolTimeout:  4 * time.Second,
 			MaxRetries:   1,
+			TLSConfig:    tlsConf,
 		})
 		if err := r.Ping(context.Background()).Err(); err != nil {
 			log.Printf("⚠️ Redis READ %s unavailable: %v", addr, err)
@@ -621,20 +641,22 @@ func setupRouter() *gin.Engine {
 		// db-service).
 		api.POST("/DangKyMonHoc", func(c *gin.Context) {
 			var req struct {
-				MaSinhVien   string `json:"maSinhVien"`
-				MaLopHocPhan string `json:"maLopHocPhan"`
-				DotDangKy    string `json:"dotDangKy"`
-				HinhThuc     string `json:"hinhThuc"`
+				MaSinhVien      string `json:"maSinhVien"`
+				MaLopHocPhan    string `json:"maLopHocPhan"`
+				MaLopHocPhanPhu string `json:"maLopHocPhanPhu"` // nguyện vọng PHỤ (lớp thay thế cùng môn) -- nguồn của phân bổ HYBRID
+				DotDangKy       string `json:"dotDangKy"`
+				HinhThuc        string `json:"hinhThuc"`
 			}
 			if err := c.ShouldBindJSON(&req); err != nil || req.MaSinhVien == "" || req.MaLopHocPhan == "" {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Thiếu thông tin"})
 				return
 			}
 			params := map[string]interface{}{
-				"maSinhVien":   req.MaSinhVien,
-				"maLopHocPhan": req.MaLopHocPhan,
-				"dotDangKy":    req.DotDangKy,
-				"hinhThuc":     req.HinhThuc,
+				"maSinhVien":      req.MaSinhVien,
+				"maLopHocPhan":    req.MaLopHocPhan,
+				"maLopHocPhanPhu": req.MaLopHocPhanPhu,
+				"dotDangKy":       req.DotDangKy,
+				"hinhThuc":        req.HinhThuc,
 			}
 			handleMutation(c, "DANG_KY_MON_HOC", params)
 		})

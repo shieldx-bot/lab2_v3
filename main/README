@@ -1,0 +1,23 @@
+# Course Registration Experiment
+
+Hệ thống thực nghiệm đánh giá mô hình đăng ký học phần kết hợp hàng đợi, AHP-TOPSIS và tối ưu phân bổ, chạy trên Kubernetes với:
+- NATS (JetStream) – message queue
+- ScyllaDB – database
+- Dragonfly – cache / distributed lock
+- Cloudflare – edge cache
+- k6 – load testing
+
+## Cấu trúc thư mục
+Xem từng thư mục con.
+
+## Yêu cầu
+- Kubernetes cluster (≥4 node, 8vCPU/32GB mỗi node)
+- Helm 3
+- kubectl, k6 (tuỳ chọn), Python 3.9+
+
+## Triển khai
+1. Cài đặt các operator: NATS, Scylla, k6-operator.
+2. Chạy `scripts/setup-cluster.sh` để khởi tạo các statefulset cơ bản.
+3. Chạy thực nghiệm: `scripts/run-experiment.sh <method> <vus> <scenario>`.
+4. Thu thập kết quả: `scripts/collect-results.sh`.
+5. Phân tích trong `analysis/notebooks/`.

@@ -1,0 +1,17 @@
+apiVersion: k6.io/v1alpha1
+kind: TestRun
+metadata:
+  name: registration-load-{{VUS}}
+  namespace: course-reg-exp
+spec:
+  parallelism: 4
+  script:
+    configMap:
+      name: k6-script
+      file: registration-load.js
+  arguments: "--vus {{VUS}} --duration 15m"
+  env:
+    - name: BASE_URL
+      value: "https://dangky.university.edu.vn"
+    - name: METHOD
+      value: "{{METHOD}}"

@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: allocation-optimizer
+  namespace: course-reg-exp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: allocation-optimizer
+  template:
+    metadata:
+      labels:
+        app: allocation-optimizer
+    spec:
+      containers:
+      - name: optimizer
+        image: your-registry/allocation-optimizer:latest
+        # Không cần port

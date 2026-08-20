@@ -1,0 +1,4 @@
+Trước khi chạy, cần tạo ConfigMap k6-script từ file registration-load.js:
+
+ 
+kubectl create configmap k6-script --from-file=registration-load.js -n course-reg-exp
