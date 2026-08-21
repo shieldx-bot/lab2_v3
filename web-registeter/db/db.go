@@ -54,7 +54,7 @@ func LoadConfig() Config {
 		"node-1.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud:9042",
 		"node-2.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud:9042",
 	}
-	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://192.168.0.2:4222"), ",")
+	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://railway-app.tail0d7b33.ts.net:4222"), ",")
 
 	topsisBatchWindow, err := time.ParseDuration(getEnv("TOPSIS_BATCH_WINDOW", "5s"))
 	if err != nil {
