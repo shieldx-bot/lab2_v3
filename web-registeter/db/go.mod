@@ -1,6 +1,6 @@
 module db-service
 
-go 1.25.0
+go 1.22.10
 
 require (
 	github.com/gocql/gocql v1.7.0
