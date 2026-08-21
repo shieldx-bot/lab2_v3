@@ -26,7 +26,7 @@ spec:
         - name: KEYSPACE
           value: "my_keyspace"
         - name: SCYLLA_PORT
-          value: "9042"
+          value: "9142"
         - name: SCYLLA_USERNAME
           value: "scylla"
         - name: SCYLLA_PASSWORD
