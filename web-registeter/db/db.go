@@ -53,7 +53,7 @@ func LoadConfig() Config {
 		scyllaHosts[i] = strings.TrimSpace(scyllaHosts[i])
 	}
 
-	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://192.168.0.4:4222,nats://192.168.0.5:4222"), ",")
+	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://192.168.0.6:4222"), ",")
 
 	topsisBatchWindow, err := time.ParseDuration(getEnv("TOPSIS_BATCH_WINDOW", "5s"))
 	if err != nil {

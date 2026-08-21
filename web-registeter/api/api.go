@@ -18,7 +18,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
-	"golang.org/x/sync/singleflight"
 )
 
 // ============================================
@@ -36,15 +35,11 @@ type Config struct {
 }
 
 func LoadConfig() Config {
-	// ---- Redis/Dragonfly: đọc từ env vars K8s ----
-	redisWriteAddr := getEnv("REDIS_WRITE_ADDR", "192.168.0.5:6379")
-	redisReadAddrsRaw := getEnv("REDIS_READ_ADDRS", redisWriteAddr)
-	redisReadAddrs := strings.Split(redisReadAddrsRaw, ",")
-	for i := range redisReadAddrs {
-		redisReadAddrs[i] = strings.TrimSpace(redisReadAddrs[i])
-	}
+	// ---- Redis/Dragonfly (Railway public TCP proxy): HARDCODE ----
+	redisWriteAddr := "altaria.proxy.rlwy.net:32558"
+	redisReadAddrs := []string{redisWriteAddr}
 
-	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://192.168.0.4:4222,nats://192.168.0.5:4222"), ",")
+	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://192.168.0.6:4222 "), ",")
 
 	// Parse định dạng thời gian (time.Duration)
 	natsTimeout, err := time.ParseDuration(getEnv("NATS_TIMEOUT", "8s"))
@@ -60,8 +55,8 @@ func LoadConfig() Config {
 	return Config{
 		RedisWriteAddr: redisWriteAddr,
 		RedisReadAddrs: redisReadAddrs,
-		RedisUsername:  getEnv("REDIS_USERNAME", "default"),
-		RedisPassword:  getEnv("REDIS_PASSWORD", ""),
+		RedisUsername:  "default",
+		RedisPassword:  "JySsMB~bB4P.xoseA5yA_X0AtrZKEqg~",
 		NATSServers:    natsServers,
 		NATSTimeout:    natsTimeout,
 		CacheTTL:       cacheTTL,
@@ -92,7 +87,6 @@ type RedisCluster struct {
 var redisCluster *RedisCluster
 var natsConn *nats.Conn
 var ncMu sync.RWMutex
-var cacheFlight singleflight.Group
 
 // ============================================
 // REQUEST/RESPONSE TYPES
@@ -107,6 +101,11 @@ type DBResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 	Error   string      `json:"error,omitempty"`
 	Message string      `json:"message,omitempty"`
+}
+
+type CacheEntry struct {
+	Data      interface{} `json:"data"`
+	ExpiresAt int64       `json:"expires_at"`
 }
 
 // ============================================
@@ -231,16 +230,25 @@ func getFromCache(ctx context.Context, cacheKey string) (interface{}, bool) {
 		return nil, false
 	}
 
-	var result interface{}
-	if err := json.Unmarshal(data, &result); err != nil {
+	var entry CacheEntry
+	if err := json.Unmarshal(data, &entry); err != nil {
 		return nil, false
 	}
 
-	return result, true
+	if entry.ExpiresAt > 0 && time.Now().UnixNano() > entry.ExpiresAt {
+		go redisCluster.writeClient.Del(context.Background(), cacheKey)
+		return nil, false
+	}
+
+	return entry.Data, true
 }
 
 func setToCache(ctx context.Context, cacheKey string, data interface{}, ttl time.Duration) error {
-	encoded, err := json.Marshal(data)
+	entry := CacheEntry{
+		Data:      data,
+		ExpiresAt: time.Now().Add(ttl).UnixNano(),
+	}
+	encoded, err := json.Marshal(entry)
 	if err != nil {
 		return err
 	}
@@ -360,30 +368,10 @@ func handleCachedQuery(c *gin.Context, queryType string, params map[string]inter
 
 	log.Printf("🔄 Cache MISS: %s %v", queryType, params)
 
-	val, err, _ := cacheFlight.Do(cacheKey, func() (interface{}, error) {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), config.NATSTimeout)
-		defer cancel()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), config.NATSTimeout)
+	defer cancel()
 
-		resp, err := sendDBRequest(ctx, queryType, params)
-		if err != nil {
-			return nil, err
-		}
-
-		if !resp.Success {
-			return resp, nil
-		}
-
-		if resp.Data != nil {
-			go func(key string, d interface{}) {
-				if err := setToCache(context.Background(), key, d, config.CacheTTL); err != nil {
-					log.Printf("⚠️ Cache set error: %v", err)
-				}
-			}(cacheKey, resp.Data)
-		}
-
-		return resp, nil
-	})
-
+	resp, err := sendDBRequest(ctx, queryType, params)
 	if err != nil {
 		c.JSON(http.StatusGatewayTimeout, gin.H{
 			"success": false,
@@ -392,11 +380,19 @@ func handleCachedQuery(c *gin.Context, queryType string, params map[string]inter
 		return
 	}
 
-	resp, ok := val.(*DBResponse)
-	if !ok {
-		c.JSON(http.StatusOK, val)
+	if !resp.Success {
+		c.JSON(http.StatusOK, resp)
 		return
 	}
+
+	if resp.Data != nil {
+		go func(key string, d interface{}) {
+			if err := setToCache(context.Background(), key, d, config.CacheTTL); err != nil {
+				log.Printf("⚠️ Cache set error: %v", err)
+			}
+		}(cacheKey, resp.Data)
+	}
+
 	c.JSON(http.StatusOK, resp)
 }
 
