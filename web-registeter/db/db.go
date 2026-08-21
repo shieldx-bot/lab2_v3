@@ -47,14 +47,14 @@ type Config struct {
 }
 
 func LoadConfig() Config {
-	// ScyllaDB Cloud (public TCP, cổng 9042 plaintext -- đã xác minh kết nối):
-	// HARDCODE, không đọc env (xem yêu cầu "hardcode key, khong dung env").
-	scyllaHosts := []string{
-		"node-0.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud:9042",
-		"node-1.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud:9042",
-		"node-2.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud:9042",
+	// ---- ScyllaDB: đọc từ env vars K8s ----
+	scyllaHostsRaw := getEnv("SCYLLA_HOSTS", "192.168.0.5,192.168.0.6,192.168.0.7")
+	scyllaHosts := strings.Split(scyllaHostsRaw, ",")
+	for i := range scyllaHosts {
+		scyllaHosts[i] = strings.TrimSpace(scyllaHosts[i])
 	}
-	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://railway-app.tail0d7b33.ts.net:4222"), ",")
+
+	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://192.168.0.4:4222,nats://192.168.0.5:4222"), ",")
 
 	topsisBatchWindow, err := time.ParseDuration(getEnv("TOPSIS_BATCH_WINDOW", "5s"))
 	if err != nil {
@@ -63,13 +63,13 @@ func LoadConfig() Config {
 
 	return Config{
 		ScyllaHosts:       scyllaHosts,
-		Keyspace:          "my_keyspace",
+		Keyspace:          getEnv("KEYSPACE", "my_keyspace"),
 		NATSServers:       natsServers,
-		DataCenter:        "AWS_AP_SOUTHEAST_1",
+		DataCenter:        getEnv("DATA_CENTER", "datacenter1"),
 		MaxWorkers:        50,
-		ScyllaUsername:    "scylla",
-		ScyllaPassword:    "r3yGQpEw51IJfNt",
-		ScyllaPort:        "9042",
+		ScyllaUsername:    getEnv("SCYLLA_USERNAME", ""),
+		ScyllaPassword:    getEnv("SCYLLA_PASSWORD", ""),
+		ScyllaPort:        getEnv("SCYLLA_PORT", "9042"),
 		ScyllaTLSCA:       "",
 		ScyllaInsecureTLS: false,
 		TopsisBatchWindow: topsisBatchWindow,

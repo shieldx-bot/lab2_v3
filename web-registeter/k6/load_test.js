@@ -1,49 +1,11 @@
-// ============================================================
-// k6-performance-test.js -- TIÊM TẢI TOPSIS-HYBRID (api-service)
-// ------------------------------------------------------------
-// Bản chính của web-registeter/k6 (thay cho load_test cũ), dựa trên
-// chiến thuật: warmup nhẹ -> đỉnh 750 VU -> rút quân dần.
-//
-// CÁC ENDPOINT DƯỚI ĐÂY TRÙNG 100% VỚI ROUTE THẬT TRONG api.go:
-//   api.go: r.Group("/DangKyHocPhan")  +  r.GET("/", health)
-//   ------------------------------------------------------------------
-//   k6 scenario                     | api.go route               | params (query/body)
-//   ------------------------------------------------------------------
-//   health                          | GET  /                     | -
-//   GET_CHI_TIET_LOP_HOC_PHAN       | GET  /DangKyHocPhan/GetChiTietLopHocPhan       | idLopHocPhan
-//   GET_DANH_SACH_LOP_HOC_PHAN      | GET  /DangKyHocPhan/GetDanhSachLopHocPhan      | TenMonHoc
-//   GET_DANH_SACH_MON_HOC_PHAN_DANG_KY | GET /DangKyHocPhan/GetDanhSachMonHocPhanDangKy | masinhvien,dotDangKy,hinhThuc
-//   BatchGetCounters                | GET  /DangKyHocPhan/BatchGetCounters          | maLopHocPhans (lặp)
-//   TrangThaiDangKy                 | GET  /DangKyHocPhan/TrangThaiDangKy           | maDangKy
-//   DANG_KY_MON_HOC                 | POST /DangKyHocPhan/DangKyMonHoc              | maSinhVien,maLopHocPhan,maLopHocPhanPhu,dotDangKy,hinhThuc
-//   HUY_DANG_KY                     | POST /DangKyHocPhan/HuyDangKy                 | maSinhVien,maLopHocPhan
-//   ------------------------------------------------------------------
-//
-// Điểm nổi bật:
-//   - Custom metrics cache_hit_rate / cache_miss_rate /
-//     cache_response_time / db_response_time (Redis nội bộ + Cloudflare).
-//   - VU context: mỗi người dùng ảo giữ lịch sử truy vấn/đăng ký để
-//     tăng cache-hit thực tế + hủy đúng bản ghi mình đã đăng ký.
-//   - GET cho API tra cứu (cache), POST cho đăng ký/hủy (ghi).
-//   - DANG_KY_MON_HOC có maLopHocPhanPhu -> test đúng đường HYBRID.
-//
-// Dữ liệu SEED khớp dữ liệu trên Scylla Cloud của hệ thống:
-//   mon_hoc:      MH000..MH059 (60 môn)
-//   sinh_vien:    SV000000..SV004999 (5000 SV)
-//   lop_hoc_phan: MH###-L0..L2 (180 lớp)
-//
-// Chạy:
-//   k6 run --out json=out/k6_raw.json load_test.js
-//   python3 extract_network.py out/k6_raw.json out/network_metrics.csv
-// ============================================================
+// k6-performance-test.js
 import http from "k6/http";
 import { check, sleep } from "k6";
 import { Rate, Trend } from "k6/metrics";
 import { SharedArray } from "k6/data";
-import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.2/index.js";
-
+import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.2/index.js"; 
 // ============================================
-// CUSTOM METRICS (tự xuất hiện trong báo cáo mặc định)
+// CUSTOM METRICS (sẽ tự động hiển thị trong báo cáo mặc định)
 // ============================================
 const cacheHitRate = new Rate("cache_hit_rate");
 const cacheMissRate = new Rate("cache_miss_rate");
@@ -51,74 +13,79 @@ const cacheResponseTime = new Trend("cache_response_time");
 const dbResponseTime = new Trend("db_response_time");
 
 // ============================================
-// LOAD SEED DATA (khớp với DB thật)
+// LOAD SEED DATA
 // ============================================
 const MON_HOC_IDS = new SharedArray("mon_hoc", function () {
   const ids = [];
-  for (let i = 0; i < 60; i++) {
-    ids.push(`MH${String(i).padStart(3, "0")}`);
+  for (let i = 1; i <= 50; i++) {
+    ids.push(`IT${String(i).padStart(3, "0")}`);
   }
   return ids;
 });
 
 const SINH_VIEN_IDS = new SharedArray("sinh_vien", function () {
   const ids = [];
-  for (let i = 0; i < 5000; i++) {
-    ids.push(`SV${String(i).padStart(6, "0")}`);
+  for (let i = 1; i <= 2000; i++) {
+    ids.push(`SV${String(i).padStart(5, "0")}`);
   }
   return ids;
 });
 
 const LOP_HOC_PHAN_IDS = new SharedArray("lop_hoc_phan", function () {
   const ids = [];
-  for (let c = 0; c < 60; c++) {
-    const mon = `MH${String(c).padStart(3, "0")}`;
-    for (let s = 0; s < 3; s++) {
-      ids.push(`${mon}-L${s}`);
-    }
+  for (let i = 1; i <= 100; i++) {
+    ids.push(`LHP${String(i).padStart(3, "0")}`);
   }
   return ids;
 });
 
-// Lớp khác CÙNG môn để làm nguyện vọng phụ (HYBRID)
-function altSectionFor(lhp) {
-  const m = lhp.slice(0, 5); // MH###
-  const l = parseInt(lhp.slice(-1));
-  return `${m}-L${(l + 1) % 3}`;
-}
+const MA_DANG_KY_IDS = new SharedArray("ma_dang_ky", function () {
+  const ids = [];
+  for (let i = 1; i <= 2000; i++) {
+    ids.push(`DK${String(i).padStart(5, "0")}`);
+  }
+  return ids;
+});
 
 // ============================================
-// CẤU HÌNH TEST (tối ưu 750 VU đỉnh; env để dùng ít hơn)
+// CẤU HÌNH TEST (Đã tối ưu cho 20 Runners x 750 VUs = 15.000 Users)
 // ============================================
-const PEAK = Math.round(Number(__ENV.PEAK_VU || 750));
 export const options = {
   stages: [
-    { duration: "30s", target: 10 }, // Khởi động nhẹ để K8s/Cloudflare nhận diện
-    { duration: "1m", target: PEAK }, // Đỉnh ngâm tải
-    { duration: "1m", target: Math.round(PEAK * 0.66) }, // Rút quân
-    { duration: "2m", target: Math.round(PEAK * 0.26) }, // Rút quân
-    { duration: "3m", target: Math.max(1, Math.round(PEAK * 0.13)) }, // Rút quân
-    { duration: "10m", target: 0 }, // Rút quân hết
+    { duration: "30s", target: 10 }, // Khởi động nhẹ để K8s và Cloudflare nhận diện
+     { duration: "1m", target: 750 },  // Đỉnh điểm ngâm tải (Mỗi máy ảo gánh 750 Users)
+    { duration: "1m", target: 500 },   // Rút quân
+    { duration: "2m", target: 200 },   // Rút quân
+    { duration: "3m", target: 100 },   // Rút quân
+    { duration: "10m", target: 0 },   // Rút quân
   ],
+  //   stages: [
+  //   { duration: "5s", target: 10 }, // Khởi động nhẹ để K8s và Cloudflare nhận diện
+  //   { duration: "10s", target: 40 },  // Tăng tốc ép K8s scale Pod
+  //   { duration: "20s", target: 70 },  // Đỉnh điểm ngâm tải (Mỗi máy ảo gánh 750 Users)
+  //   { duration: "30s", target: 0 },   // Rút quân
+  // ],
+
+  
+  // stages: [ { duration: "30s", target: 50 } ], // Bắn 50 users thôi
+
   thresholds: {
     http_req_duration: ["p(50)<500", "p(90)<1000", "p(95)<2000", "p(99)<5000"],
     http_req_failed: ["rate<0.05"],
-    cache_hit_rate: ["rate>0.5"], // Cloudflare/Redis gánh > 50% tải
-    cache_response_time: ["p(95)<200"],
+    cache_hit_rate: ["rate>0.5"], // Kỳ vọng Cloudflare gánh > 50% tải
+    cache_response_time: ["p(95)<200"], // Cache từ Edge phải cực nhanh
     db_response_time: ["p(95)<3000"],
   },
 };
 
-// BASE_URL: mặc định api-service local (:4000); hệ thống triển khai thì đặt
-// qua env, ví dụ: BASE_URL=https://api.vanhstack.dev ./run.sh
-const BASE_URL = __ENV.BASE_URL || "http://localhost:4000";
+const BASE_URL = "https://vanhstack.dev";
 
 // ============================================
 // TEST SCENARIOS
 // ============================================
 const SCENARIOS = {
   GET_CHI_TIET_LOP_HOC_PHAN: {
-    weight: 30,
+    weight: 25,
     endpoint: "/DangKyHocPhan/GetChiTietLopHocPhan",
     cacheable: true,
     buildParams: () => ({
@@ -128,7 +95,7 @@ const SCENARIOS = {
   },
 
   GET_DANH_SACH_MON_HOC_PHAN_DANG_KY: {
-    weight: 30,
+    weight: 25,
     endpoint: "/DangKyHocPhan/GetDanhSachMonHocPhanDangKy",
     cacheable: true,
     buildParams: () => ({
@@ -139,11 +106,37 @@ const SCENARIOS = {
   },
 
   GET_DANH_SACH_LOP_HOC_PHAN: {
-    weight: 35,
+    weight: 25,
     endpoint: "/DangKyHocPhan/GetDanhSachLopHocPhan",
     cacheable: true,
     buildParams: () => ({
       TenMonHoc: MON_HOC_IDS[Math.floor(Math.random() * MON_HOC_IDS.length)],
+    }),
+  },
+
+  BATCH_GET_COUNTERS: {
+    weight: 10,
+    endpoint: "/DangKyHocPhan/BatchGetCounters",
+    cacheable: true,
+    buildParams: () => {
+      const count = Math.floor(Math.random() * 5) + 1;
+      const maLopHocPhans = [];
+      for (let i = 0; i < count; i++) {
+        maLopHocPhans.push(
+          LOP_HOC_PHAN_IDS[Math.floor(Math.random() * LOP_HOC_PHAN_IDS.length)]
+        );
+      }
+      return { maLopHocPhans };
+    },
+  },
+
+  TRANG_THAI_DANG_KY: {
+    weight: 10,
+    endpoint: "/DangKyHocPhan/TrangThaiDangKy",
+    cacheable: true,
+    buildParams: () => ({
+      maDangKy:
+        MA_DANG_KY_IDS[Math.floor(Math.random() * MA_DANG_KY_IDS.length)],
     }),
   },
 
@@ -161,15 +154,13 @@ const SCENARIOS = {
       return {
         maSinhVien: sv,
         maLopHocPhan: lhp,
-        // Nguyện vọng PHỤ cùng môn -> AllocationOptimizer chạy chế độ HYBRID
-        maLopHocPhanPhu: altSectionFor(lhp),
         hinhThuc: "Chinh quy",
       };
     },
   },
 
   HUY_DANG_KY: {
-    weight: 0, // tắt mặc định; bật khi muốn đo luôn hủy (dùng lịch sử đăng ký của VU)
+    weight: 0,
     endpoint: "/DangKyHocPhan/HuyDangKy",
     cacheable: false,
     buildParams: () => {
@@ -221,6 +212,8 @@ function selectScenario(vu) {
       SCENARIOS.GET_CHI_TIET_LOP_HOC_PHAN,
       SCENARIOS.GET_DANH_SACH_MON_HOC_PHAN_DANG_KY,
       SCENARIOS.GET_DANH_SACH_LOP_HOC_PHAN,
+      SCENARIOS.BATCH_GET_COUNTERS,
+      SCENARIOS.TRANG_THAI_DANG_KY,
     ];
     return warmupScenarios[vu.requestCount % warmupScenarios.length];
   }
@@ -302,7 +295,7 @@ export default function () {
 }
 
 // ============================================
-// EXECUTE REQUEST (GET cho cacheable, POST cho mutation)
+// EXECUTE REQUEST (Đã nâng cấp GET/POST và Cloudflare Check)
 // ============================================
 function executeRequest(endpoint, params, cacheable) {
   let url = `${BASE_URL}${endpoint}`;
@@ -316,25 +309,35 @@ function executeRequest(endpoint, params, cacheable) {
   const headers = {
     "Content-Type": "application/json",
     "Accept": "application/json",
+    "User-Agent": "Secret-LoadTest-VanhStack-9999" // Thẻ bài xuyên WAF
   };
 
+  // PHÂN LOẠI PHƯƠNG THỨC HTTP
   if (cacheable) {
-    // API tra cứu -> params thành query string + GET (đi qua cache Redis/Edge)
-    const queryParams = Object.keys(params)
-      .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
-      .join("&");
-
+    // Nếu là API tra cứu (Cacheable) -> Chuyển params thành query string và dùng GET
+    const queryParts = [];
+    for (const [k, v] of Object.entries(params)) {
+      if (Array.isArray(v)) {
+        v.forEach((item) => {
+          queryParts.push(`${encodeURIComponent(k)}=${encodeURIComponent(item)}`);
+        });
+      } else {
+        queryParts.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+      }
+    }
+    const queryParams = queryParts.join("&");
+    
     if (queryParams.length > 0) {
       url = `${url}?${queryParams}`;
     }
 
     response = http.get(url, {
       headers: headers,
-      timeout: "10s",
+      timeout: "10s", // Tăng timeout cho luồng tải lớn
       tags: tags,
     });
   } else {
-    // API ghi -> POST + body JSON
+    // Nếu là API Đăng ký/Hủy (Mutation) -> Giữ nguyên POST và gửi Body JSON
     const payload = JSON.stringify(params);
     response = http.post(url, payload, {
       headers: headers,
@@ -345,11 +348,10 @@ function executeRequest(endpoint, params, cacheable) {
 
   const duration = response.timings.duration;
   if (response.status !== 200) {
-    console.log(
-      `Lỗi gòi: Status ${response.status} - Body: ${response.body.substring(0, 100)}`,
-    );
+    console.log(`Lỗi gòi: Status ${response.status} - Body: ${response.body.substring(0, 100)}`);
   }
 
+  // Check response
   const result = check(response, {
     "HTTP 200": (r) => r.status === 200,
     "Business success": (r) => {
@@ -365,12 +367,13 @@ function executeRequest(endpoint, params, cacheable) {
   if (result) {
     let isCacheHit = false;
 
-    // 1. Cloudflare Edge gánh đạn?
+    // KIỂM TRA MỨC ĐỘ CACHE
+    // 1. Kiểm tra xem Cloudflare Edge có gánh đạn không?
     const cfCacheStatus = response.headers["Cf-Cache-Status"];
     if (cfCacheStatus === "HIT") {
       isCacheHit = true;
     } else {
-      // 2. Redis nội bộ (api-service cache) đỡ được không?
+      // 2. Nếu lọt qua Cloudflare, kiểm tra xem Redis nội bộ có đỡ được không?
       try {
         isCacheHit = JSON.parse(response.body).fromCache === true;
       } catch (e) {
@@ -379,17 +382,16 @@ function executeRequest(endpoint, params, cacheable) {
     }
 
     if (isCacheHit) {
-      cacheHitRate.add(true, tags);
+      cacheHitRate.add(1, tags);
       cacheResponseTime.add(duration, tags);
+    } else if (cacheable) {
+      cacheMissRate.add(1, tags);
+      dbResponseTime.add(duration, tags);
     } else {
       dbResponseTime.add(duration, tags);
-      if (cacheable) {
-        cacheMissRate.add(true, tags); // chỉ tính miss trên các request cacheable
-      }
     }
   }
-}
-
+} 
 export function handleSummary(data) {
   return {
     stdout: textSummary(data, { indent: " ", enableColors: true }),

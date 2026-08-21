@@ -35,11 +35,15 @@ type Config struct {
 }
 
 func LoadConfig() Config {
-	// ---- Redis/Dragonfly (Railway public TCP proxy): HARDCODE ----
-	redisWriteAddr := "altaria.proxy.rlwy.net:32558"
-	redisReadAddrs := []string{redisWriteAddr}
+	// ---- Redis/Dragonfly: đọc từ env vars K8s ----
+	redisWriteAddr := getEnv("REDIS_WRITE_ADDR", "192.168.0.5:6379")
+	redisReadAddrsRaw := getEnv("REDIS_READ_ADDRS", redisWriteAddr)
+	redisReadAddrs := strings.Split(redisReadAddrsRaw, ",")
+	for i := range redisReadAddrs {
+		redisReadAddrs[i] = strings.TrimSpace(redisReadAddrs[i])
+	}
 
-	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://railway-app.tail0d7b33.ts.net:4222"), ",")
+	natsServers := strings.Split(getEnv("NATS_SERVERS", "nats://192.168.0.4:4222,nats://192.168.0.5:4222"), ",")
 
 	// Parse định dạng thời gian (time.Duration)
 	natsTimeout, err := time.ParseDuration(getEnv("NATS_TIMEOUT", "8s"))
@@ -55,8 +59,8 @@ func LoadConfig() Config {
 	return Config{
 		RedisWriteAddr: redisWriteAddr,
 		RedisReadAddrs: redisReadAddrs,
-		RedisUsername:  "default",
-		RedisPassword:  "JySsMB~bB4P.xoseA5yA_X0AtrZKEqg~",
+		RedisUsername:  getEnv("REDIS_USERNAME", "default"),
+		RedisPassword:  getEnv("REDIS_PASSWORD", ""),
 		NATSServers:    natsServers,
 		NATSTimeout:    natsTimeout,
 		CacheTTL:       cacheTTL,
