@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-08-21T04:07:18.238376+00:00",
+  "hostname": "shieldx-linux",
+  "cpu_percent": 15.9,
+  "cpu_count": 12,
+  "cpu_freq_mhz": 2219.22,
+  "load_1m": 1.39,
+  "load_5m": 1.65,
+  "load_15m": 1.74,
+  "mem_total_bytes": 15913238528,
+  "mem_used_bytes": 13280583680,
+  "mem_available_bytes": 2632654848,
+  "mem_percent": 83.5,
+  "swap_total_bytes": 4294963200,
+  "swap_used_bytes": 3224588288,
+  "swap_percent": 75.1,
+  "disk_total_bytes": 501809635328,
+  "disk_used_bytes": 251912265728,
+  "disk_percent": 52.9
+}

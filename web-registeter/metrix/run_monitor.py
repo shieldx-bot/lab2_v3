@@ -53,7 +53,10 @@ def collect_loop():
 
 
 if __name__ == "__main__":
-    if "--once" in sys.argv:
+    if "--vm" in sys.argv:
+        from vm_collector import collect_loop as vm_collect_loop
+        vm_collect_loop()
+    elif "--once" in sys.argv:
         rows = collect_once()
         if rows:
             csv_path = save_csv(rows, "snapshot")
