@@ -148,3 +148,11 @@ CREATE TABLE IF NOT EXISTS dang_ky (
     updated_at             timestamp,
     PRIMARY KEY ((ma_sinh_vien), ma_lop_hoc_phan)
 );
+
+-- ============================================
+-- 6. SECONDARY INDEXES (cho ALLOW FILTERING queries)
+-- ============================================
+CREATE INDEX IF NOT EXISTS idx_dangky_trangthai ON dang_ky(trang_thai);
+CREATE INDEX IF NOT EXISTS idx_dangky_madangky ON dang_ky(ma_dang_ky);
+CREATE INDEX IF NOT EXISTS idx_dangky_mamonhoc ON dang_ky(ma_mon_hoc);
+CREATE INDEX IF NOT EXISTS idx_lhp_mamonhoc ON lop_hoc_phan(ma_mon_hoc);

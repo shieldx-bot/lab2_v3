@@ -1,0 +1,7 @@
+{
+  "name": "scylla-seed",
+  "version": "1.0.0",
+  "dependencies": {
+    "cassandra-driver": "^4.9.0"
+  }
+}

@@ -18,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 )
 
 // ============================================
@@ -91,6 +92,7 @@ type RedisCluster struct {
 var redisCluster *RedisCluster
 var natsConn *nats.Conn
 var ncMu sync.RWMutex
+var cacheFlight singleflight.Group
 
 // ============================================
 // REQUEST/RESPONSE TYPES
@@ -105,11 +107,6 @@ type DBResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 	Error   string      `json:"error,omitempty"`
 	Message string      `json:"message,omitempty"`
-}
-
-type CacheEntry struct {
-	Data      interface{} `json:"data"`
-	ExpiresAt int64       `json:"expires_at"`
 }
 
 // ============================================
@@ -234,25 +231,16 @@ func getFromCache(ctx context.Context, cacheKey string) (interface{}, bool) {
 		return nil, false
 	}
 
-	var entry CacheEntry
-	if err := json.Unmarshal(data, &entry); err != nil {
+	var result interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, false
 	}
 
-	if entry.ExpiresAt > 0 && time.Now().UnixNano() > entry.ExpiresAt {
-		go redisCluster.writeClient.Del(context.Background(), cacheKey)
-		return nil, false
-	}
-
-	return entry.Data, true
+	return result, true
 }
 
 func setToCache(ctx context.Context, cacheKey string, data interface{}, ttl time.Duration) error {
-	entry := CacheEntry{
-		Data:      data,
-		ExpiresAt: time.Now().Add(ttl).UnixNano(),
-	}
-	encoded, err := json.Marshal(entry)
+	encoded, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
@@ -372,10 +360,30 @@ func handleCachedQuery(c *gin.Context, queryType string, params map[string]inter
 
 	log.Printf("🔄 Cache MISS: %s %v", queryType, params)
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), config.NATSTimeout)
-	defer cancel()
+	val, err, _ := cacheFlight.Do(cacheKey, func() (interface{}, error) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), config.NATSTimeout)
+		defer cancel()
 
-	resp, err := sendDBRequest(ctx, queryType, params)
+		resp, err := sendDBRequest(ctx, queryType, params)
+		if err != nil {
+			return nil, err
+		}
+
+		if !resp.Success {
+			return resp, nil
+		}
+
+		if resp.Data != nil {
+			go func(key string, d interface{}) {
+				if err := setToCache(context.Background(), key, d, config.CacheTTL); err != nil {
+					log.Printf("⚠️ Cache set error: %v", err)
+				}
+			}(cacheKey, resp.Data)
+		}
+
+		return resp, nil
+	})
+
 	if err != nil {
 		c.JSON(http.StatusGatewayTimeout, gin.H{
 			"success": false,
@@ -384,19 +392,11 @@ func handleCachedQuery(c *gin.Context, queryType string, params map[string]inter
 		return
 	}
 
-	if !resp.Success {
-		c.JSON(http.StatusOK, resp)
+	resp, ok := val.(*DBResponse)
+	if !ok {
+		c.JSON(http.StatusOK, val)
 		return
 	}
-
-	if resp.Data != nil {
-		go func(key string, d interface{}) {
-			if err := setToCache(context.Background(), key, d, config.CacheTTL); err != nil {
-				log.Printf("⚠️ Cache set error: %v", err)
-			}
-		}(cacheKey, resp.Data)
-	}
-
 	c.JSON(http.StatusOK, resp)
 }
 

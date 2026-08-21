@@ -1,9 +1,66 @@
+const fs = require("fs");
+const path = require("path");
 const cassandra = require("cassandra-driver");
- 
+
+const SCHEMA_SQL = `
+CREATE KEYSPACE IF NOT EXISTS my_keyspace
+WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 1};
+
+CREATE TABLE IF NOT EXISTS my_keyspace.mon_hoc (
+    ma_mon_hoc text, ten_mon_hoc text, so_tin_chi int, don_gia double,
+    trang_thai text, created_at timestamp, updated_at timestamp,
+    PRIMARY KEY (ma_mon_hoc)
+);
+CREATE TABLE IF NOT EXISTS my_keyspace.sinh_vien (
+    ma_sinh_vien text, ho text, ten text, gioi_tinh text, email text,
+    so_dien_thoai text, ma_lop text, created_at timestamp, updated_at timestamp,
+    PRIMARY KEY (ma_sinh_vien)
+);
+CREATE TABLE IF NOT EXISTS my_keyspace.sinh_vien_ho_so (
+    ma_sinh_vien text, uu_tien_bat_buoc int, nguy_co_cham_tot_nghiep int,
+    so_ky_da_cho int, so_lan_dang_ky_that_bai int, so_tin_chi_tich_luy int,
+    khoi_luong_hoc_ky_hien_tai int, muc_phu_hop_nguyen_vong int,
+    so_lop_thay_the int, kha_nang_mo_them_lop int, updated_at timestamp,
+    PRIMARY KEY (ma_sinh_vien)
+);
+CREATE TABLE IF NOT EXISTS my_keyspace.lop_hoc_phan (
+    ma_lop_hoc_phan text, ma_mon_hoc text, ten_lop_hoc_phan text,
+    ma_sinh_vien text, phong_hoc text, thoi_khoa_bieu text,
+    so_luong_toi_da int, trang_thai text, ngay_bat_dau timestamp,
+    ngay_ket_thuc timestamp, created_at timestamp, updated_at timestamp,
+    PRIMARY KEY (ma_lop_hoc_phan)
+);
+CREATE TABLE IF NOT EXISTS my_keyspace.lop_hoc_phan_counter (
+    ma_lop_hoc_phan text, so_luong_da_dang_ky counter,
+    PRIMARY KEY (ma_lop_hoc_phan)
+);
+CREATE TABLE IF NOT EXISTS my_keyspace.dang_ky (
+    ma_sinh_vien text, ma_lop_hoc_phan text, ma_dang_ky text, ho text,
+    ten text, ten_lop_hoc_phan text, ma_mon_hoc text, phong_hoc text,
+    thoi_khoa_bieu text, so_luong_toi_da int, hinh_thuc text,
+    ngay_dang_ky timestamp, trang_thai text, ly_do_tu_choi text,
+    ma_lop_hoc_phan_phu text, ten_lop_hoc_phan_phu text,
+    phong_hoc_phu text, thoi_khoa_bieu_phu text, so_luong_toi_da_phu int,
+    created_at timestamp, updated_at timestamp,
+    PRIMARY KEY ((ma_sinh_vien), ma_lop_hoc_phan)
+);
+CREATE INDEX IF NOT EXISTS my_keyspace.idx_dangky_trangthai ON my_keyspace.dang_ky(trang_thai);
+CREATE INDEX IF NOT EXISTS my_keyspace.idx_dangky_madangky ON my_keyspace.dang_ky(ma_dang_ky);
+CREATE INDEX IF NOT EXISTS my_keyspace.idx_dangky_mamonhoc ON my_keyspace.dang_ky(ma_mon_hoc);
+CREATE INDEX IF NOT EXISTS my_keyspace.idx_lhp_mamonhoc ON my_keyspace.lop_hoc_phan(ma_mon_hoc);
+`;
+
 const client = new cassandra.Client({
-  contactPoints: ["localhost:9042"],
-  localDataCenter: "datacenter1",
+  contactPoints: [
+    "node-0.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud",
+    "node-1.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud",
+    "node-2.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud",
+  ],
+  localDataCenter: "AWS_AP_SOUTHEAST_1",
   keyspace: "my_keyspace",
+  authProvider: new cassandra.auth.PlainTextAuthProvider("scylla", "r3yGQpEw51IJfNt"),
+  protocolOptions: { port: 9042 },
+  socketOptions: { connectTimeout: 10000 },
 });
 
 const MON_HOC_COUNT = 120;
@@ -164,7 +221,7 @@ function buildMonHocs() {
       ma_mon_hoc: `IT${String(i).padStart(3, "0")}`,
       ten_mon_hoc: `${topics[(i - 1) % 24]} ${Math.floor((i - 1) / 24) + 1}`,
       so_tin_chi: 2 + (i % 2),
-      don_gia: cassandra.types.BigDecimal.fromNumber(pricesPool[i % 10]),
+      don_gia: pricesPool[i % 10],
       trang_thai: i % 20 === 0 ? "Khoa" : "Mo",
       created_at: new Date(),
       updated_at: new Date(),
@@ -379,31 +436,19 @@ async function insertSinhVienHoSos(hoSos) {
 async function insertLopHocPhans(lopHocPhans) {
   const query = `INSERT INTO lop_hoc_phan (ma_lop_hoc_phan, ma_mon_hoc, ten_lop_hoc_phan, phong_hoc, thoi_khoa_bieu, so_luong_toi_da, trang_thai, ngay_bat_dau, ngay_ket_thuc, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  for (const lhp of lopHocPhans) {
-    await client.execute(
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < lopHocPhans.length; i += BATCH_SIZE) {
+    const batch = lopHocPhans.slice(i, i + BATCH_SIZE).map((lhp) => ({
       query,
-      [
-        lhp.ma_lop_hoc_phan,
-        lhp.ma_mon_hoc,
-        lhp.ten_lop_hoc_phan,
-        lhp.phong_hoc,
-        lhp.thoi_khoa_bieu,
-        lhp.so_luong_toi_da,
-        lhp.trang_thai,
-        lhp.ngay_bat_dau,
-        lhp.ngay_ket_thuc,
-        lhp.created_at,
-        lhp.updated_at,
+      params: [
+        lhp.ma_lop_hoc_phan, lhp.ma_mon_hoc, lhp.ten_lop_hoc_phan,
+        lhp.phong_hoc, lhp.thoi_khoa_bieu, lhp.so_luong_toi_da,
+        lhp.trang_thai, lhp.ngay_bat_dau, lhp.ngay_ket_thuc,
+        lhp.created_at, lhp.updated_at,
       ],
-      { prepare: true },
-    );
-
-    // Khởi tạo counter = 0
-    await client.execute(
-      "UPDATE lop_hoc_phan_counter SET so_luong_da_dang_ky = so_luong_da_dang_ky + 0 WHERE ma_lop_hoc_phan = ?",
-      [lhp.ma_lop_hoc_phan],
-      { prepare: true },
-    );
+    }));
+    await client.batch(batch, { prepare: true });
+    if (i % 100 === 0 && i > 0) console.log(`   da insert lhp ${i}/${lopHocPhans.length}`);
   }
 
   return lopHocPhans;
@@ -445,14 +490,19 @@ async function insertDangKys(dangKys) {
     await client.batch(batch, { prepare: true });
     totalInserted += batch.length;
 
-    // Cập nhật counter
-    for (const maLopHocPhan of counterUpdates) {
-      await client.execute(
-        "UPDATE lop_hoc_phan_counter SET so_luong_da_dang_ky = so_luong_da_dang_ky + 1 WHERE ma_lop_hoc_phan = ?",
-        [maLopHocPhan],
-        { prepare: true },
-      );
+    // Counter updates must be executed individually (ScyllaDB disallows counter in logged batch)
+    const counterMap = {};
+    for (const maLHP of counterUpdates) {
+      counterMap[maLHP] = (counterMap[maLHP] || 0) + 1;
     }
+    const counterPromises = Object.entries(counterMap).map(([maLHP, count]) =>
+      client.execute(
+        "UPDATE lop_hoc_phan_counter SET so_luong_da_dang_ky = so_luong_da_dang_ky + ? WHERE ma_lop_hoc_phan = ?",
+        [count, maLHP],
+        { prepare: true }
+      )
+    );
+    await Promise.all(counterPromises);
 
     if (totalInserted % 1000 === 0)
       console.log(`   da insert dang ky ${totalInserted}/${dangKys.length}`);
@@ -495,6 +545,29 @@ async function run() {
   try {
     await client.connect();
     console.log("✅ Ket noi ScyllaDB thanh cong\n");
+
+    // 0. TẠO SCHEMA (nếu chưa có)
+    console.log("📐 Dang tao schema...");
+    const adminClient = new cassandra.Client({
+      contactPoints: [
+        "node-0.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud",
+        "node-1.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud",
+        "node-2.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud",
+      ],
+      localDataCenter: "AWS_AP_SOUTHEAST_1",
+      authProvider: new cassandra.auth.PlainTextAuthProvider("scylla", "r3yGQpEw51IJfNt"),
+      protocolOptions: { port: 9042 },
+    });
+    const statements = SCHEMA_SQL.split(";").map(s => s.trim()).filter(s => s.length > 0);
+    for (const stmt of statements) {
+      try {
+        await adminClient.execute(stmt);
+      } catch (e) {
+        console.log(`   Schema note: ${e.message.substring(0, 80)}`);
+      }
+    }
+    await adminClient.shutdown();
+    console.log("✅ Schema ready\n");
 
     // 1. XÓA TẤT CẢ DỮ LIỆU CŨ
     await truncateAllTables();

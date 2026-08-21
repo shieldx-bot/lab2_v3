@@ -1762,14 +1762,14 @@ func handleQuery(queryType string, params map[string]interface{}) DBResponse {
 func startSubscriptions(ctx context.Context, workerSem chan struct{}, wg *sync.WaitGroup) error {
 	// Subscription db.query
 	sub1, err := natsConn.Subscribe("db.query", func(msg *nats.Msg) {
-		// Acquire worker slot
+		timer := time.NewTimer(2 * time.Second)
+		defer timer.Stop()
 		select {
 		case workerSem <- struct{}{}:
 			wg.Add(1)
 			go func(m *nats.Msg) {
 				defer wg.Done()
 				defer func() { <-workerSem }()
-				// Không cần lock khi đọc natsConn
 				var req DBRequest
 				if err := json.Unmarshal(m.Data, &req); err != nil {
 					m.Respond([]byte(`{"success":false,"error":"invalid json"}`))
@@ -1780,8 +1780,9 @@ func startSubscriptions(ctx context.Context, workerSem chan struct{}, wg *sync.W
 				m.Respond(data)
 				log.Printf("📨 %s -> success=%v", req.QueryType, resp.Success)
 			}(msg)
+		case <-timer.C:
+			msg.Respond([]byte(`{"success":false,"error":"worker pool saturated, retry later"}`))
 		case <-ctx.Done():
-			// Nếu context bị hủy, không xử lý thêm message
 			return
 		}
 	})
@@ -1791,6 +1792,8 @@ func startSubscriptions(ctx context.Context, workerSem chan struct{}, wg *sync.W
 
 	// Subscription db.batch.query
 	sub2, err := natsConn.Subscribe("db.batch.query", func(msg *nats.Msg) {
+		timer := time.NewTimer(2 * time.Second)
+		defer timer.Stop()
 		select {
 		case workerSem <- struct{}{}:
 			wg.Add(1)
@@ -1820,6 +1823,8 @@ func startSubscriptions(ctx context.Context, workerSem chan struct{}, wg *sync.W
 				m.Respond(data)
 				log.Printf("📤 Batch: %d queries", len(req.Queries))
 			}(msg)
+		case <-timer.C:
+			msg.Respond([]byte(`{"success":false,"error":"worker pool saturated, retry later"}`))
 		case <-ctx.Done():
 			return
 		}
@@ -1867,10 +1872,8 @@ func main() {
 		log.Fatalf("❌ start subscriptions: %v", err)
 	}
 
-	// --- MỚI: vòng lặp TOPSIS-Batch, chạy độc lập với NATS subscription ---
-	// Đây chính là "Batch Controller" (module 4) -- nhưng dùng ticker + poll
-	// ScyllaDB thay vì channel trong bộ nhớ, để bền vững qua restart (xem
-	// comment chi tiết ở processPendingBatch()).
+	// --- Vòng lặp TOPSIS-Batch, dùng worker pool RIÊNG ---
+	batchSem := make(chan struct{}, 3)
 	handlerWg.Add(1)
 	go func() {
 		defer handlerWg.Done()
@@ -1879,7 +1882,15 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				processPendingBatch()
+				select {
+				case batchSem <- struct{}{}:
+					go func() {
+						defer func() { <-batchSem }()
+						processPendingBatch()
+					}()
+				default:
+					log.Println("⚠️ [TOPSIS-Batch] batch đang chạy, bỏ qua lần này")
+				}
 			case <-ctx.Done():
 				return
 			}
