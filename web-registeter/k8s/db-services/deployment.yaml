@@ -22,7 +22,7 @@ spec:
         - containerPort: 3000
         env:
         - name: SCYLLA_HOSTS
-          value: "192.168.0.5,192.168.0.6,192.168.0.7"
+          value: "node-0.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud"
         - name: KEYSPACE
           value: "my_keyspace"
         - name: SCYLLA_PORT
