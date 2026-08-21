@@ -47,8 +47,7 @@ type Config struct {
 }
 
 func LoadConfig() Config {
-	// ---- ScyllaDB: đọc từ env vars K8s ----
-	scyllaHostsRaw := getEnv("SCYLLA_HOSTS", "192.168.0.5,192.168.0.6,192.168.0.7")
+	scyllaHostsRaw := getEnv("SCYLLA_HOSTS", "node-0.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud,node-1.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud,node-2.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud")
 	scyllaHosts := strings.Split(scyllaHostsRaw, ",")
 	for i := range scyllaHosts {
 		scyllaHosts[i] = strings.TrimSpace(scyllaHosts[i])
@@ -65,10 +64,10 @@ func LoadConfig() Config {
 		ScyllaHosts:       scyllaHosts,
 		Keyspace:          getEnv("KEYSPACE", "my_keyspace"),
 		NATSServers:       natsServers,
-		DataCenter:        getEnv("DATA_CENTER", "datacenter1"),
+		DataCenter:        getEnv("DATA_CENTER", "AWS_AP_SOUTHEAST_1"),
 		MaxWorkers:        50,
-		ScyllaUsername:    getEnv("SCYLLA_USERNAME", ""),
-		ScyllaPassword:    getEnv("SCYLLA_PASSWORD", ""),
+		ScyllaUsername:    getEnv("SCYLLA_USERNAME", "scylla"),
+		ScyllaPassword:    getEnv("SCYLLA_PASSWORD", "r3yGQpEw51IJfNt"),
 		ScyllaPort:        getEnv("SCYLLA_PORT", "9042"),
 		ScyllaTLSCA:       "",
 		ScyllaInsecureTLS: false,
@@ -759,7 +758,7 @@ func initScylla() error {
 	scyllaCluster.Timeout = 10 * time.Second
 
 	if config.DataCenter != "" {
-		scyllaCluster.PoolConfig.HostSelectionPolicy = gocql.DCAwareRoundRobinPolicy(config.DataCenter)
+		scyllaCluster.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(gocql.DCAwareRoundRobinPolicy(config.DataCenter))
 	} else {
 		scyllaCluster.PoolConfig.HostSelectionPolicy = gocql.RoundRobinHostPolicy()
 	}

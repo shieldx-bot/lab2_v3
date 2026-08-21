@@ -16,17 +16,17 @@ spec:
       # schedulerName: my-scheduler
       containers:
       - name: db-service
-        image: shieldxbot/go-db-service:v1.0.10
+        image: shieldxbot/go-db-service:v1.0.11
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
         env:
         - name: SCYLLA_HOSTS
-          value: "node-0.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud"
+          value: "node-0.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud,node-1.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud,node-2.aws-ap-southeast-1.b20d788451ea289820b7.clusters.scylla.cloud"
         - name: KEYSPACE
           value: "my_keyspace"
         - name: SCYLLA_PORT
-          value: "9142"
+          value: "9042"
         - name: SCYLLA_USERNAME
           value: "scylla"
         - name: SCYLLA_PASSWORD
@@ -34,7 +34,7 @@ spec:
         - name: NATS_SERVERS
           value: "nats://192.168.0.4:4222,nats://192.168.0.5:4222"
         - name: DATA_CENTER
-          value: "datacenter1"
+          value: "AWS_AP_SOUTHEAST_1"
         - name: MAX_WORKERS
           value: "50"
         resources:
